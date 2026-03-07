@@ -1,15 +1,21 @@
 from abc import ABC, abstractmethod
 import os
-from typing import Dict, Type
+from typing import Any, Dict, Type
+from SharedKernel.persistence.Decorators import Service
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_mistralai import ChatMistralAI, MistralAIEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from src.SharedKernel.utils.yamlenv import load_env_yaml
 
 config = load_env_yaml()
 
 class AIConfig(ABC):
     @abstractmethod
-    def create_provider(self) -> BaseChatModel:
+    def create_provider(self) -> Any:
+        pass
+
+    @abstractmethod
+    def create_embedding(self) -> Any:
         pass
 
 class AIConfigFactory:
@@ -30,9 +36,9 @@ class MistralConfig(AIConfig):
     def __init__(self) -> None:
         self.model = config.ai.mistral.model
         self.api_key = config.ai.mistral.api_key
-        self.embeddings = config.ai.mistral.embeddings
+        self.embeddings = config.ai.mistral.embed
 
-    def create_provider(self) -> BaseChatModel:
+    def create_provider(self):
         return ChatMistralAI(
             model=self.model,
             api_key=self.api_key
@@ -45,4 +51,23 @@ class MistralConfig(AIConfig):
         )
         return embeddings 
 
+class OllamaConfig(AIConfig):
+    def __init__(self) -> None:
+        self.model = config.ai.ollama.model
+        self.embeddings = config.ai.ollama.embed
+
+    def create_provider(self):
+        return ChatOllama(
+            model=self.model,
+            base_url=config.ai.ollama.host
+        )
+
+    def create_embedding(self):
+        embeddings = OllamaEmbeddings(
+            model=self.embeddings,
+            base_url=config.ai.ollama.host
+        )
+        return embeddings 
+
 AIConfigFactory.register("mistral", MistralConfig)
+AIConfigFactory.register("ollama", OllamaConfig)

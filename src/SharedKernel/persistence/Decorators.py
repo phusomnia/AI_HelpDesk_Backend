@@ -2,8 +2,8 @@
 import asyncio
 from functools import wraps
 import functools
-import logging
-from typing import Any, Callable, Type
+from typing import Any, Callable, Optional, Type
+import traceback
 
 def Transactional(cls):
     """
@@ -32,14 +32,74 @@ def Transaction(func: Callable) -> Callable:
             print(f"Session closed - Session ID: {id(self.session)}")
     return wrapper
 
-def Service(cls):
-    cls.__di_type__ = "service"
-    return cls
+def Service(implements: Optional[Type] = None):
+    def decorator(cls):
+        cls.__di_type__ = "service"
+        
+        # Lưu trữ interface target nếu có
+        if implements:
+            cls.__di_interface__ = implements
+        
+        original_init = cls.__init__
+        
+        @functools.wraps(original_init)
+        def validated_init(self, *args, **kwargs):
+            try:
+                return original_init(self, *args, **kwargs)
+            except Exception as e:
+                # Log lỗi khởi tạo chi tiết
+                print(f"[DI Error] Initialization failed for {cls.__name__}: {e}")
+                raise
+        cls.__init__ = validated_init
+        return cls
+    
+    # Xử lý cú pháp @Service() hoặc @Service
+    if callable(implements):
+        cls = implements
+        return decorator(cls)
+    
+    return decorator
 
-def Repository(cls):
-    cls.__di_type__ = "repository"
-    return cls
+def Repository(implements: Optional[Type] = None):
+    def decorator(cls):
+        cls.__di_type__ = "repository"
+        
+        # Lưu trữ interface target nếu có
+        if implements:
+            cls.__di_interface__ = implements
+        
+        original_init = cls.__init__
+        
+        @functools.wraps(original_init)
+        def validated_init(self, *args, **kwargs):
+            try:
+                return original_init(self, *args, **kwargs)
+            except Exception as e:
+                # Log lỗi khởi tạo chi tiết
+                print(f"[DI Error] Initialization failed for {cls.__name__}: {e}")
+                raise
+        cls.__init__ = validated_init
+        return cls
+    
+    # Xử lý cú pháp @Service() hoặc @Service
+    if callable(implements):
+        cls = implements
+        return decorator(cls)
+    
+    return decorator
 
 def Controller(cls: Type[Any]) -> Type[Any]:
     cls.__di_type__ = "controller"
+
+    original_init = cls.__init__
+    
+    def validated_init(self, *args, **kwargs):
+        try:
+            return original_init(self, *args, **kwargs)
+        except Exception as e:
+            print(f"Error: {e}")
+            # traceback.print_exc()
+            raise
+    
+    cls.__init__ = validated_init
     return cls

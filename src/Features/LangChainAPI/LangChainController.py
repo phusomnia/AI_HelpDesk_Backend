@@ -1,168 +1,10 @@
-# import os
-# from typing import List
-# from fastapi import APIRouter, Depends, File, UploadFile
-# from fastapi.responses import StreamingResponse
-# from Features import get_logger
-# from src.Features.LangChainAPI.LangTools import crawl, crawl_tool_stream, duckduckgo_search
-# from src.Features.LangChainAPI.LangChainService import LangChainService
-# from src.Features.LangChainAPI.LangChainDTO import ChatRequest, ChatTechniqueRequest, ChatTemplateRequest, MemoryType, PromptType, TechType, TemplateType
-# from langchain_community.tools import DuckDuckGoSearchRun
-
-# logger = get_logger(__name__)
-
-# router = APIRouter(
-#   prefix="/api/v1/langchain",
-#   tags=["Lang Chain"]
-# ) 
-
-# # ====================
-# # CHUONG: PROMPT
-# # ====================
-# @router.post("/")
-# async def prompt(
-#   req: ChatRequest,
-#   prompt_type: PromptType = PromptType.none,
-#   lang_chain_service: LangChainService = Depends() 
-# ):
-#     if prompt_type == PromptType.none:
-#         return await lang_chain_service.prompt(req)
-#     elif prompt_type == PromptType.stream:
-#         return StreamingResponse(
-#             lang_chain_service.stream_prompt(req),
-#             media_type="text/event-stream"
-#         )
-
-# # ========================================
-# # CHUONG: ENGINEERING PROMPT
-# # ========================================
-# @router.get("/technique")
-# async def prompt_technique(
-#     tech_type: TechType,
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     dto = ChatTechniqueRequest(message="", tech=tech_type)
-#     async def event_generator():
-#         async for token in lang_chain_service.promt_techniques(dto):
-#             yield token
-    
-#     return StreamingResponse(
-#         event_generator(),
-#         media_type="text/event-stream"
-#     )
-
-# # ====================
-# # CHUONG: 
-# # ====================
-# @router.post("/template")
-# async def prompt_template(
-#     req: ChatRequest,
-#     template_type: TemplateType,
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     dto = ChatTemplateRequest(message=req.message, template=template_type)    
-#     return StreamingResponse(
-#         lang_chain_service.prompt_template(dto),
-#         media_type="text/event-stream"
-#     )
-
-# @router.post("/search")
-# async def search(
-#     req: ChatRequest,
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     urls = duckduckgo_search(req.message)
-#     all_docs = []
-#     for url in urls:
-#         content = ""
-#         async for chunk in crawl_tool_stream(url):
-#             content += chunk
-#         all_docs.append(content)
-    
-#     return all_docs
-#     # return duckduckgo_search(req.message)
-
-# @router.post("/fetch")
-# def fetch_web(
-#     req: ChatRequest,
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     return StreamingResponse(
-#         crawl_tool_stream(req.message),
-#         media_type="text/event-stream"
-#     )
-
-# @router.post("/tools")
-# async def tools(
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     return StreamingResponse(
-#         lang_chain_service.tools(),
-#         media_type="text/plain"
-#     )
-
-# @router.post("/tools_stream")
-# async def tools_stream(
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     # return await lang_chain_service.tools()
-#     return StreamingResponse(
-#         lang_chain_service.tools_stream(),
-#         media_type="text/event-stream"
-#     )
-
-# @router.post("/structed_output")
-# async def structed_output(
-#     lang_chain_service: LangChainService = Depends() 
-# ):
-#     return await lang_chain_service.structed_output()   
-
-# # ====================
-# # CHUONG: MEMORY
-# # ====================
-# @router.post("/short_memory")
-# async def short_chat(
-#     user_id: str, 
-#     message: str, 
-#     service: LangChainService = Depends()
-# ):
-#     # return await lang_chain_service.short_chat(user_id, message)
-#     return await service.short_chat_no_runnable(user_id, message)
-#     pass
-
-# @router.post("/long_memory")
-# async def long_chat(
-#     user_id: str, 
-#     message: str, 
-#     service: LangChainService = Depends()
-# ):
-#     return await service.long_chat(user_id, message)
-#     pass
-
-# # =======================
-# # CHUONG: DOCUMENT LOADER
-# # =======================
-# @router.post("/document_load")
-# async def load_document(
-#     files: List[UploadFile] = File(...),
-#     service: LangChainService = Depends()
-# ):
-#     logger.info("test")
-#     # service.load_pdf(files)
-#     return StreamingResponse(
-#         service.load_pdf(files),
-#         media_type="text/event-stream"
-#     )
-#     pass
-
-from socket import has_dualstack_ipv6
 from typing import List
 from Features.LangChainAPI.LangChainFacade import LangChainFacade
 from Features.LangChainAPI.LangTools import LangTools
-from Features.LangChainAPI.service.PromptService import PromptService
-from SharedKernel.AIConfig import AIConfig, AIConfigFactory
-from fastapi import APIRouter, FastAPI, File, Request, Response, UploadFile, status
+from SharedKernel.ai.AIConfig import AIConfigFactory
+from fastapi import APIRouter, FastAPI, File, UploadFile
 from fastapi.responses import StreamingResponse
-from lagom import Container, Singleton
+from lagom import Container
 from Features.LangChainAPI.LangChainDTO import ChatMessageRequest, ChatRequest, ChatTechniqueRequest, ChatTemplateRequest, PromptType, TechType, TemplateType
 from SharedKernel.persistence.Decorators import Controller
 
@@ -186,7 +28,7 @@ class LangChainController:
         self.app.include_router(self.tool_router)
 
     def register_route(self):
-        self.container[AIConfigFactory] = AIConfigFactory()
+        # self.container[AIConfigFactory] = AIConfigFactory
         langfacade = self.container[LangChainFacade]
 
         @self.router.post("/")
@@ -284,7 +126,7 @@ class LangChainController:
         def document_webpage(
             req: ChatRequest
         ):
-            result = langfacade.LPI.loader.load_webpage(req.message)
+            result = langfacade.SYN.loader.load_webpage(req.message)
  
             return StreamingResponse(
                 result,
@@ -297,11 +139,15 @@ class LangChainController:
             files: List[UploadFile] = File(...),
         ):
             for file in files:
-                await langfacade.LPI.pdf_handler(file)
+                await langfacade.SYN.ingest_pdf(file)
 
         @self.router.post("/search_document")
         async def search_document(query: str):
-            return await langfacade.LPI.vector_store_repo.search(query)
+            result = await langfacade.SYN.call_rag(query)
+            return StreamingResponse(
+                result["answer"],
+                media_type="text/event-stream"
+            )
             ...
             
     def tool_route(self):

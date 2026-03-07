@@ -5,13 +5,13 @@ import uuid
 import uuid6
 from SharedKernel.base.Logger import get_logger
 from SharedKernel.persistence.Decorators import Service
-from src.Features.TicketAPI import TicketRepository
+from src.Features.TicketAPI.TicketRepository import TicketRepository
 from src.Features.TicketAPI.TicketDTO import TicketSearchRequest
 
 logger = get_logger(__name__)
 new_id = uuid6.uuid7()
 
-# @Service
+@Service
 class TicketService:
     def __init__(
         self, 

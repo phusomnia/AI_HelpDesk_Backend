@@ -1,6 +1,9 @@
 from enum import Enum, StrEnum
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+from SharedKernel.utils.yamlenv import load_env_yaml
 from pydantic import BaseModel, Field
+
+config = load_env_yaml()
 
 class PromptType(StrEnum):
     NONE = "none"
@@ -52,13 +55,14 @@ class Callback(BaseModel):
     ainvoke: Callable[[Any], Any]
     astream: Callable[[Any], Any]
 
-class SplitRequest(BaseModel):
-    text: str = Field(..., min_length=1, description="Văn bản cần tách")
-    chunk_size: int = Field(default=1000, ge=50, description="Kích thước tối đa mỗi chunk (ký tự)")
-    chunk_overlap: int = Field(default=200, ge=0, description="Số ký tự trùng lặp giữa các chunk")
-    separators: Optional[List[str]] = Field(default=None, description="Dấu phân cách tùy chọn")
+class SplitRequest:
+    text: str
+    chunk_size: int
+    chunk_overlap: int 
+    separators: Optional[List[str]]
 
 class ChunkResponse(BaseModel):
     index: int
     content: str
     length: int
+    metadata: Optional[Dict[str, Any]] = None

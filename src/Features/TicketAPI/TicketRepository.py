@@ -12,6 +12,7 @@ from src.Domain.base_entities import Tickets
 
 logger = get_logger(__name__)
 
+@Repository
 class TicketRepository(CrudRepository[Tickets, uuid.UUID]):
     def __init__(self, session: AsyncSession):
         super().__init__(Tickets, session)

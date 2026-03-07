@@ -1,4 +1,4 @@
-from SharedKernel.base import logger
+from SharedKernel.base.Logger import logger
 
 class Utils:
     @staticmethod

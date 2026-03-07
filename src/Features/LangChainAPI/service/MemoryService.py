@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from Features.LangChainAPI.LangChainDTO import ChatMessageRequest
+from SharedKernel.persistence.Decorators import Service
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from pydantic import BaseModel
@@ -9,12 +10,13 @@ from sqlalchemy import create_engine
 
 memory_store: dict[str, InMemoryChatMessageHistory] = {}
 
+# @Service
 class MemoryService:
     def __init__(self, provider, callbacks) -> None:
         self.provider = provider
         self.callbacks = callbacks or {}
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", "Bạn là một trợ lý ảo hữu ích và ngắn gọn."),
+            ("system", "Bạn là một trợ lý ảo hữu ích"),
             MessagesPlaceholder(variable_name="history"),
             ("human", "{input}")
         ])

@@ -1,11 +1,13 @@
 from Features.LangChainAPI.LangChainDTO import Callback, ChatRequest, ChatTechniqueRequest, ChatTemplateRequest, TechType, TemplateType
 from Features.LangChainAPI.prompt import COT_PROMPT, FEW_SHOT_PROMPT, REACT_PROMPT, ZERO_SHOT_PROMPT, System_Instruction
+from SharedKernel.persistence.Decorators import Service
 from SharedKernel.utils.yamlenv import load_env_yaml
 from langchain_core.language_models.chat_models import BaseChatModel
 from pydantic import config
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
+@Service
 class PromptService:
     def __init__(self, provider: BaseChatModel, callbacks: Callback):
         self.provider = provider

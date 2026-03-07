@@ -7,13 +7,14 @@ import os
 import pkgutil
 import traceback
 from typing import Any, Iterable, List, Optional, Type
+from Features.LangChainAPI.LangChainController import LangChainController
+from Features.TicketAPI.TicketController import TicketController
 from fastapi import FastAPI
 from lagom import Container, Singleton
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from sqlmodel import text
 from Features.RealTimeAPI.Chat.ChatController import SocketController
-from Features.TicketAPI import TicketService, TicketController
 from SharedKernel.base.DIContainer import DIContainer
 from SharedKernel.base.Logger import get_logger
 from SharedKernel.persistence.PersistenceManager import PersistenceManagerFactory
@@ -33,6 +34,7 @@ class WebApplication(FastAPI):
         kwargs.setdefault("redoc_url", None)
         super().__init__(**kwargs)
 
+        # self.di_container = DIContainer()
         self.di_container = Container()
         self.di_container[AsyncSession] = lambda: PersistenceManagerFactory.create(config.database.type).get_async_session()
         self.app_router()
