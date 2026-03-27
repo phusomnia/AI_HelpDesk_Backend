@@ -40,21 +40,40 @@ class BaseRepository:
             
             result = await self.session.exec(stmt)
             
-            # return result.first()
             first_result = result.mappings().first()
             return dict(first_result) if first_result else None
         except Exception as e:
             await self.session.rollback()
             raise e
 
-    async def execute_raw(
+    # async def execute_raw(
+    #     self,
+    #     sql: str
+    # ) ->  RawQueryResult:
+    #     try:
+    #         stmt = text(sql)
+            
+    #         result = await self.session.exec(stmt)
+    #         await self.session.commit()
+            
+    #         return {"affected_rows": result.rowcount}
+                
+    #     except Exception as e:
+    #         await self.session.rollback()
+    #         raise e
+
+    async def execute(
         self,
-        sql: str
-    ) ->  RawQueryResult:
+        sql: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> RawQueryResult:
         try:
             stmt = text(sql)
             
-            result = await self.session.exec(stmt)
+            if params is not None: 
+                stmt = stmt.bindparams(**params)
+            
+            result = await self.session.execute(stmt)
             await self.session.commit()
             
             return {"affected_rows": result.rowcount}

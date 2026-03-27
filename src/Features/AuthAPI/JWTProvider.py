@@ -2,10 +2,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import os
 import jwt
+from src.SharedKernel.utils.yamlenv import load_env_yaml
+
+config = load_env_yaml()
 
 class JWTProvider:
     def __init__(self):
-        self.secret_key = os.getenv("JWT_SECRET_KEY")
+        self.secret_key = config.jwt.secret
         self.algorithm = "HS256"
         self.expire_minutes = 60
     

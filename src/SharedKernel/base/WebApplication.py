@@ -6,21 +6,17 @@ import json
 import os
 import pkgutil
 import traceback
-from typing import Any, Iterable, List, Optional, Type
-from Features.LangChainAPI.LangChainController import LangChainController
-from Features.TicketAPI.TicketController import TicketController
+from typing import Any, AsyncGenerator, Iterable, List, Optional, Type
+
+from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import FastAPI
-from lagom import Container, Singleton
-from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine, AsyncSession
 from sqlmodel import text
-from Features.RealTimeAPI.Chat.ChatController import SocketController
-from SharedKernel.base.DIContainer import DIContainer
 from SharedKernel.base.Logger import get_logger
 from SharedKernel.persistence.PersistenceManager import PersistenceManagerFactory
 from SharedKernel.socket.SocketManager import SocketManager
 from scalar_fastapi import get_scalar_api_reference
 from SharedKernel.utils.yamlenv import load_env_yaml
+from fastapi.middleware.cors import CORSMiddleware
 
 config = load_env_yaml()
 print(config.openapi.litestar.url)
@@ -34,10 +30,17 @@ class WebApplication(FastAPI):
         kwargs.setdefault("redoc_url", None)
         super().__init__(**kwargs)
 
-        # self.di_container = DIContainer()
-        self.di_container = Container()
-        self.di_container[AsyncSession] = lambda: PersistenceManagerFactory.create(config.database.type).get_async_session()
+        # self.di_container = Container()
+        # self.di_container[AsyncSession] = lambda: PersistenceManagerFactory.create(config.database.type).get_async_session()
+
         self.app_router()
+        self.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"]
+        )
     
     def app_router(self):
         @self.get("/hello", tags=["Hello"])
@@ -100,7 +103,7 @@ class WebApplication(FastAPI):
         
         for controller_class in controllers:
             try:
-                controller_instance = controller_class(self, self.di_container)
+                controller_class(self)
                 logger.info(f"Registered controller: {controller_class.__name__}")
             except Exception as e:
                 logger.info(f"Error registering {controller_class.__name__}: {e}")

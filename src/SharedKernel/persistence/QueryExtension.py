@@ -3,6 +3,8 @@ class QueryExtension:
         self._base = base_sql
         self._filters = []
         self._params = {}
+        self._limit = ""  
+        self._order = ""
 
     def filter(self, condition: bool, clause: str, **params):
         if condition:

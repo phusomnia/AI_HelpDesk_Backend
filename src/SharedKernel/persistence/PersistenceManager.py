@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Type
+from typing import Any, AsyncGenerator, Dict, Type
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from SharedKernel.utils.yamlenv import load_env_yaml
@@ -30,6 +30,8 @@ class MYSQLManager(IPersistenceManager):
         self.async_session = async_sessionmaker(
             bind=self.engine, 
             class_=AsyncSession, 
+            autoflush=False,
+            autocommit=False,
             expire_on_commit=False
         )
         
@@ -87,3 +89,14 @@ class PersistenceManagerFactory():
 
 PersistenceManagerFactory.register("MYSQL", MYSQLManager)
 # PersistenceManagerFactory.register("POSTGRE", PostgreManager)
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency để get database session"""
+    pm = PersistenceManagerFactory.create(config.database.type)
+    async with pm.get_async_session() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

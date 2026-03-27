@@ -1,17 +1,25 @@
+from langchain_core.messages import HumanMessage, SystemMessage
 from Features.LangChainAPI.LangChainDTO import Callback, ChatRequest, ChatTechniqueRequest, ChatTemplateRequest, TechType, TemplateType
-from Features.LangChainAPI.prompt import COT_PROMPT, FEW_SHOT_PROMPT, REACT_PROMPT, ZERO_SHOT_PROMPT, System_Instruction
 from SharedKernel.persistence.Decorators import Service
 from SharedKernel.utils.yamlenv import load_env_yaml
 from langchain_core.language_models.chat_models import BaseChatModel
-from pydantic import config
+from pydantic import BaseModel, Field, config
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
+from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 
-@Service
+from src.Features.LangChainAPI.prompt import System_Instruction
+
+class YouTubeVideo(BaseModel):
+    title: str = Field(description="Tiêu đề video")
+    channel: str = Field(description="Tên kênh YouTube")
+    views: int = Field(description="Số lượt xem")
+    upload_date: str = Field(description="Ngày đăng video")
+    is_short: bool = Field(description="Video có phải YouTube Shorts hay không")
+
 class PromptService:
     def __init__(self, provider: BaseChatModel, callbacks: Callback):
         self.provider = provider
-        self.callbacks = callbacks
+        self.callbacks = callbacks 
 
     async def aprompt(self, req: ChatRequest):
         return await self.callbacks.ainvoke(self.provider, [System_Instruction(req)])
@@ -20,85 +28,76 @@ class PromptService:
     async def asprompt(self, req: ChatRequest) -> dict:
         return await self.callbacks.astream(self.provider, [System_Instruction(req)])
 
-    async def prompt_template(self, req: ChatTemplateRequest) -> dict:
-        async def from_template():
-            template = "Viết một blog ngắn nói về {topic}" 
-            _prompt = PromptTemplate.from_template(template)
-            prompt = _prompt.format(topic=req.message)
-
-            return await self.callbacks.astream(self.provider, prompt)
-
-        async def prompt_template():
-            template = "Viết một blog ngắn nói về {topic} khoảng {words}"
-            _prompt = PromptTemplate(
-                # nội dung chính
-                template=template,
-                # biến đầu vào
-                input_variables=['topic'],
-                # định nghĩ kiểu dữ liệu
-                input_types={},
-                # biến cố định
-                partial_variables={'words': '300 từ'}
-            )
-            prompt = _prompt.format(topic=req.message)
-
-            # hoặc
-            # prompt = _prompt.partial(words="300 từ")
-            # prompt = _prompt.format(topic=req.message)
-            # async for chunk in self.provider.astream(prompt):
-            #     yield chunk
-
-            return await self.callbacks.astream(self.provider, prompt)
-
-        async def message_placeholder():
-            template = ChatPromptTemplate.from_template("Viết một blog ngắn nói về {topic} khoảng {words}")
-            chain = template | self.provider 
-            placeholder = {
-                "topic": req.message,
-                "words": "300 từ"
-            }
-
-            return await self.callbacks.astream(chain, placeholder)
-
-        async def chat_template():
-            template = ChatPromptTemplate.from_messages([
-                ("system", "Bạn là trợ lý AI"),
-                MessagesPlaceholder(variable_name="hoi_thoai"),
-                ("human", "Tóm tắt nội dung trong {so_tu} từ"),
-            ])
-
-            chain = template | self.model | StrOutputParser()
-
-            placeholder = {
-                "so_tu": 20,
-                "hoi_thoai": [
-                    ("human", 
-                    """Xin chào bạn Teddy, tên bạn là gì thế mình quên rồi :D, 
-                    Viết một blog ngắn nói về manga khoảng 200 từ"""
-                    )
-                ],
-            }
-
-            return await self.callbacks.astream(chain, placeholder)
-
-        template_dict = {
-            TemplateType.from_template: from_template(),
-            TemplateType.prompt_template: prompt_template(), 
-            TemplateType.chat_template: chat_template(),
-            TemplateType.message_placeholder: message_placeholder()
+    async def GameAwardQA(self, question: str):
+        GAME_AWARDS_2026 = {
+            "Game of the Year": "Clair Obscur: Expedition 33",
+            "Best RPG": "Clair Obscur: Expedition 33",
+            "Best Action Game": "Hades II",
+            "Best Adventure Game": "Ghost of Yōtei",
+            "Best Strategy / Simulation": "The Alters",
+            "Best Racing Game": "Mario Kart World",
+            "Best Online Game": "ARC Raiders",
+            "Best Sports Game": "Rematch"
         }
 
-        return template_dict
+        def build_context():
+            context = "Game Awards 2026 winners:\n"
 
-    async def promt_techniques(self, req: ChatTechniqueRequest) -> dict:
-        async def gen(message: str) -> dict:
-            return await self.callbacks.astream(self.provider, message)
+            for category, game in GAME_AWARDS_2026.items():
+                context += f"{category}: {game}\n"
 
-        techies_rsg = {
-            TechType.ZERO: gen(ZERO_SHOT_PROMPT),
-            TechType.FEW: gen(FEW_SHOT_PROMPT),
-            TechType.COT: gen(COT_PROMPT),
-            TechType.REACT: gen(REACT_PROMPT)
-        }
+            return context
+        print(build_context())
 
-        return techies_rsg
+        messages = [SystemMessage(content=f"""
+        Bạn là trợ lý hỏi đáp về Game Awards.
+
+        Sử dụng dữ liệu sau để trả lời:
+
+        {build_context()}
+
+        Trả lời ngắn gọn.
+        Nếu không có dữ liệu thì nói "Không có thông tin".
+        """)]
+
+        messages.append(HumanMessage(content=question))
+        stream = self.provider.astream(messages)
+
+        async for chunk in stream:
+            yield chunk.content
+        ...
+
+    async def create_blog_with_ai(self, title: str) -> dict:
+        template = "Viết một blog ngắn nói về {topic}" 
+        _prompt = PromptTemplate.from_template(template)
+        prompt = _prompt.format(topic=title)
+
+        return await self.callbacks.astream(self.provider, prompt)
+
+    async def extract_youtube_video_info(
+        self, 
+        description: str):
+        instruction = """
+        Trích xuất thông tin video YouTube từ đoạn sau.
+
+        {format_instructions}
+
+        Description:
+        {description}
+        """
+
+        parser = PydanticOutputParser(pydantic_object=YouTubeVideo)
+
+        template = PromptTemplate(
+            template=instruction,
+            input_variables=["description"],
+            partial_variables={"format_instructions": parser.get_format_instructions()},
+        )
+
+        chain = template | self.provider | parser
+        stream = chain.astream({"description": description})
+        
+        async for chunk in stream:
+            yield chunk.model_dump_json()
+
+        

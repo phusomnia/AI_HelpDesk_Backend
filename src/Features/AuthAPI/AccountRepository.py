@@ -1,65 +1,65 @@
-# from typing import Any, Dict, Optional
-# import uuid
-# from fastapi import Depends
-# from sqlmodel.ext.asyncio.session import AsyncSession
-# from src.Features.AuthAPI.AccountDTO import AccountSearchRequest
-# from src.Shared.base.Page import Page
-# from src.Shared.persistence.QueryExtension import QueryExtension
-# from src.Domain.base_entities import Accounts
-# from src.Shared.persistence.CrudRepository import CrudRepository
-# from src.Shared.persistence.Engine import get_async_session
+from typing import Any, Dict, Optional
+import uuid
+from fastapi import Depends
+from sqlmodel.ext.asyncio.session import AsyncSession
+from src.Domain.base_entities import Accounts
+from src.Features.AuthAPI.AccountDTO import AccountSearchRequest
+from src.SharedKernel.base.Page import Page
+from src.SharedKernel.persistence.CrudRepository import CrudRepository
+from src.SharedKernel.persistence.PersistenceManager import get_db_session
+from SharedKernel.persistence.QueryExtension import QueryExtension
 
-# class UserRepository(CrudRepository[Accounts, uuid.UUID]):
-#     def __init__(self, session: AsyncSession = Depends(get_async_session)):
-#         super().__init__(Accounts, session)
+class UserRepository(CrudRepository[Accounts, uuid.UUID]):
+    def __init__(self, session: AsyncSession = Depends(get_db_session)):
+        super().__init__(Accounts, session)
 
-#     async def search_accounts(self, req: AccountSearchRequest):
-#         base_query = """
-#         FROM Accounts a
-#         WHERE 1=1
-#         """
+    async def search_accounts(self, req: AccountSearchRequest):
+        base_query = """
+        FROM Accounts a
+        WHERE 1=1
+        """
 
-#         query = (
-#             QueryExtension(base_query)
-#             .paginate(req.page, req.page_size)
-#         )
+        query = (
+            QueryExtension(base_query)
+            .paginate(req.page, req.page_size)
+        )
 
-#         exec_query, params = query.build_select("*")
-#         count_query, count_params = query.build_count()
+        exec_query, params = query.build_select("*")
+        count_query, count_params = query.build_count()
 
-#         exec_result = await self.fetch_all(exec_query, params)
-#         count_result = await self.fetch_all(count_query, count_params)
+        exec_result = await self.fetch_all(exec_query, params)
+        count_result = await self.fetch_all(count_query, count_params)
 
-#         return Page(
-#             content=exec_result,
-#             page_number=req.page,
-#             page_size=req.page_size,
-#             total_elements=count_result[0]['total']
-#         )
+        return Page(
+            content=exec_result,
+            page_number=req.page,
+            page_size=req.page_size,
+            total_elements=count_result[0]['total']
+        )
 
-#     async def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-#         base_query = """
-#         FROM Accounts a
-#         WHERE a.email = :email
-#         """
+    async def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        base_query = """
+        FROM Accounts a
+        WHERE a.email = :email
+        """
 
-#         params = {
-#             "email": email
-#         }
+        params = {
+            "email": email
+        }
         
-#         exec_result = await self.fetch_one(base_query, params)
-#         return exec_result
+        exec_result = await self.fetch_one(base_query, params)
+        return exec_result
 
-#     async def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
-#         base_query = """
-#         SELECT * 
-#         FROM Accounts a
-#         WHERE a.username = :username
-#         """
+    async def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        base_query = """
+        SELECT * 
+        FROM Accounts a
+        WHERE a.username = :username
+        """
         
-#         params = {
-#             "username": username
-#         }
+        params = {
+            "username": username
+        }
         
-#         exec_result = await self.fetch_one(base_query, params)
-#         return exec_result
+        exec_result = await self.fetch_one(base_query, params)
+        return exec_result

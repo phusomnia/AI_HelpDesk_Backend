@@ -5,6 +5,9 @@ from pydantic import BaseModel, Field
 
 config = load_env_yaml()
 
+#
+# PROMPT
+#
 class PromptType(StrEnum):
     NONE = "none"
     STREAM = "stream"
@@ -44,13 +47,6 @@ class MemoryType(str, Enum):
     short = "short",
     long = "long"
 
-class YouTubeVideo(BaseModel):
-    title: str = Field(description="Tiêu đề video")
-    channel: str = Field(description="Tên kênh YouTube")
-    views: int = Field(description="Số lượt xem")
-    upload_date: str = Field(description="Ngày đăng video")
-    is_short: bool = Field(description="Video có phải YouTube Shorts hay không")
-
 class Callback(BaseModel):
     ainvoke: Callable[[Any], Any]
     astream: Callable[[Any], Any]
@@ -66,3 +62,11 @@ class ChunkResponse(BaseModel):
     content: str
     length: int
     metadata: Optional[Dict[str, Any]] = None
+
+class RagType(StrEnum):
+    MANUAL = "manual"
+    ABS = "abstract"
+
+class RagRequest(BaseModel):
+    query: str
+    rag_type: RagType

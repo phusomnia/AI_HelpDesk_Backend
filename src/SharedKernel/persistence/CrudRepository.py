@@ -20,7 +20,8 @@ class CrudRepository(BaseRepository, Generic[T, ID], metaclass=RepositoryMeta):
         self.model = model
 
     async def find_all(self) -> Sequence[T]:
-        return (await self.session.exec(select(self.model))).all()
+        result = await self.session.exec(select(self.model))
+        return result.all()
 
     async def save(self, entity: T) -> T:
         self.session.add(entity)

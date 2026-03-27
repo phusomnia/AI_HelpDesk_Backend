@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import os
 from typing import Any, Dict, Type
+
+from langchain.embeddings import Embeddings
 from SharedKernel.persistence.Decorators import Service
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_mistralai import ChatMistralAI, MistralAIEmbeddings
@@ -11,11 +13,11 @@ config = load_env_yaml()
 
 class AIConfig(ABC):
     @abstractmethod
-    def create_provider(self) -> Any:
+    def create_provider(self) -> BaseChatModel:
         pass
 
     @abstractmethod
-    def create_embedding(self) -> Any:
+    def create_embedding(self) -> Embeddings:
         pass
 
 class AIConfigFactory:

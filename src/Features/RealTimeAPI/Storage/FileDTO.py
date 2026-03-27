@@ -1,5 +1,10 @@
+from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
+
+class TypeStorage(str, Enum):
+    SYSTEM          = "system_storage"
+    USER            = "user_storage"
 
 class FileSearchRequest(BaseModel):
     page: int = Field(1, ge=1, description="Page number")
@@ -8,7 +13,3 @@ class FileSearchRequest(BaseModel):
     # department_name: Optional[str] = Field(None, description="Filter by department")
     # status: Optional[str] = Field(None, description="Filter by status")
     # priority: Optional[str] = Field(None, description="Filter by priority")
-
-class DeleteFileRequest(BaseModel):
-    type_storage: str
-    file_id: str

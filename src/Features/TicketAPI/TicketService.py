@@ -2,20 +2,20 @@ import datetime
 import json
 from typing import List
 import uuid
+from fastapi import Depends
 import uuid6
 from SharedKernel.base.Logger import get_logger
-from SharedKernel.persistence.Decorators import Service
+from src.Domain.base_entities import Tickets
 from src.Features.TicketAPI.TicketRepository import TicketRepository
-from src.Features.TicketAPI.TicketDTO import TicketSearchRequest
+from src.Features.TicketAPI.TicketDTO import TicketCreateDTO, TicketSearchRequest, TicketUpdateDTO
 
 logger = get_logger(__name__)
 new_id = uuid6.uuid7()
 
-@Service
 class TicketService:
     def __init__(
         self, 
-        ticket_repo: TicketRepository,
+        ticket_repo: TicketRepository = Depends(),
         # file_service: StorageService,
     ):
         self.ticket_repo = ticket_repo
@@ -24,10 +24,10 @@ class TicketService:
     async def search(self, req: TicketSearchRequest):
         return await self.ticket_repo.search_tickets(req)
 
-    # async def create_ticket(self, dto: TicketCreateDTO):
-    #     model = Tickets()
-    #     ticket = self.ticket_repo.update_model_from_dto(model, dto)
-    #     return await self.ticket_repo.save(ticket)
+    async def create_ticket(self, dto: TicketCreateDTO):
+        model = Tickets()
+        ticket = self.ticket_repo.update_model_from_dto(model, dto)
+        return await self.ticket_repo.save(ticket)
 
     # async def create_ticket_with_attachments(self, dto: TicketCreateDTO, files: List[UploadFile]) -> Tickets:
     #     model = Tickets()
@@ -75,12 +75,12 @@ class TicketService:
     #     logger.info(f"Edit ticket: {ticket}")
     #     return await self.ticket_repo.save(ticket)
 
-    # async def soft_delete_ticket(self, id: str):
-    #     model = await self.ticket_repo.find_by_id(uuid.UUID(id))
-    #     model.delete_at = datetime.datetime.now()
-    #     if not model:
-    #         raise ValueError(f"Ticket with ID {id} not found")
-    #     return await self.ticket_repo.save(model)
+    async def soft_delete_ticket(self, id: str):
+        model = await self.ticket_repo.find_by_id(uuid.UUID(id))
+        model.delete_at = datetime.datetime.now()
+        if not model:
+            raise ValueError(f"Ticket with ID {id} not found")
+        return await self.ticket_repo.save(model)
     
 
     # async def create_raw(self):
@@ -90,11 +90,11 @@ class TicketService:
 
     #     return await self.ticket_repo.execute_raw(query)
 
-    # async def update_ticket(self, ticket_id: str, dto: TicketUpdateDTO) -> Tickets:
-    #     ticket = await self.ticket_repo.find_by_id(ticket_id)
+    async def update_ticket(self, ticket_id: str, dto: TicketUpdateDTO) -> Tickets:
+        ticket = await self.ticket_repo.find_by_id(ticket_id)
         
-    #     for field, value in dto.model_dump(exclude_unset=True).items():
-    #         if hasattr(ticket, field):
-    #             setattr(ticket, field, value)
+        for field, value in dto.model_dump(exclude_unset=True).items():
+            if hasattr(ticket, field):
+                setattr(ticket, field, value)
         
-    #     return await self.ticket_repo.update(ticket)
+        return await self.ticket_repo.update(ticket)

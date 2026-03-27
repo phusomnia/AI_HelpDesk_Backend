@@ -10,7 +10,6 @@ from sqlalchemy import create_engine
 
 memory_store: dict[str, InMemoryChatMessageHistory] = {}
 
-# @Service
 class MemoryService:
     def __init__(self, provider, callbacks) -> None:
         self.provider = provider
