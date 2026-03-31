@@ -1,10 +1,30 @@
 import uuid6
 from typing import Optional
 import datetime
-
+import enum
 from sqlalchemy import CHAR, Column, Enum, Index, Integer, JSON, String, TIMESTAMP, Text, text
 from sqlalchemy.dialects.mysql import TINYINT, VARCHAR
 from sqlmodel import Field, SQLModel
+
+class AccountsRole(str, enum.Enum):
+    ADMIN = 'ADMIN'
+    AGENT = 'AGENT'
+    CUSTOMER = 'CUSTOMER'
+
+
+class TicketsPriority(str, enum.Enum):
+    LOW = 'LOW'
+    MEDIUM = 'MEDIUM'
+    HIGH = 'HIGH'
+    URGENT = 'URGENT'
+
+
+class TicketsStatus(str, enum.Enum):
+    OPEN = 'OPEN'
+    IN_PROGRESS = 'IN_PROGRESS'
+    RESOLVED = 'RESOLVED'
+    CLOSED = 'CLOSED'
+
 
 class Accounts(SQLModel, table=True):
     __tablename__ = 'Accounts'
@@ -18,7 +38,7 @@ class Accounts(SQLModel, table=True):
     email: Optional[str] = Field(default=None, sa_column=Column('email', String(255)))
     full_name: Optional[str] = Field(default=None, sa_column=Column('full_name', String(255)))
     password: Optional[str] = Field(default=None, sa_column=Column('password', String(128)))
-    role: Optional[str] = Field(default=None, sa_column=Column('role', Enum('ADMIN', 'AGENT', 'CUSTOMER'), server_default=text("'CUSTOMER'")))
+    role: Optional[AccountsRole] = Field(default=None, sa_column=Column('role', Enum(AccountsRole, values_callable=lambda cls: [member.value for member in cls]), server_default=text("'CUSTOMER'")))
     department_id: Optional[str] = Field(default=None, sa_column=Column('department_id', CHAR(36)))
     created_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('created_at', TIMESTAMP, server_default=text('(now())')))
     delete_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('delete_at', TIMESTAMP))
@@ -28,8 +48,9 @@ class Attachment(SQLModel, table=True):
     __tablename__ = 'Attachment'
 
     id: str = Field(default_factory=lambda: str(uuid6.uuid7()), sa_column=Column(CHAR(36), primary_key=True))
-    file_name: Optional[str] = Field(default=None, sa_column=Column('file_name', VARCHAR(255)))
-    url: Optional[str] = Field(default=None, sa_column=Column('url', VARCHAR(255)))
+    type: Optional[str] = Field(default=None, sa_column=Column('type', String(128)))
+    file_name: Optional[str] = Field(default=None, sa_column=Column('file_name', VARCHAR(255, charset='utf8mb3', collation='utf8mb3_general_ci')))
+    url: Optional[str] = Field(default=None, sa_column=Column('url', VARCHAR(255, charset='utf8mb3', collation='utf8mb3_general_ci')))
     created_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('created_at', TIMESTAMP, server_default=text('(now())')))
     delete_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('delete_at', TIMESTAMP))
 
@@ -56,27 +77,14 @@ class Messages(SQLModel, table=True):
     delete_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('delete_at', TIMESTAMP))
 
 
-class TicketReplies(SQLModel, table=True):
-    __tablename__ = 'Ticket_Replies'
-
-    id: str = Field(default_factory=lambda: str(uuid6.uuid7()), sa_column=Column(CHAR(36), primary_key=True))
-    ticket_id: Optional[str] = Field(default=None, sa_column=Column('ticket_id', CHAR(36)))
-    sender_id: Optional[str] = Field(default=None, sa_column=Column('sender_id', CHAR(36)))
-    message: Optional[str] = Field(default=None, sa_column=Column('message', Text))
-    is_internal: Optional[int] = Field(default=None, sa_column=Column('is_internal', TINYINT(1), server_default=text("'0'")))
-    is_ai_generated: Optional[int] = Field(default=None, sa_column=Column('is_ai_generated', TINYINT(1), server_default=text("'0'")))
-    created_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('created_at', TIMESTAMP, server_default=text('(now())')))
-    delete_at: Optional[datetime.datetime] = Field(default=None, sa_column=Column('delete_at', TIMESTAMP))
-
-
 class Tickets(SQLModel, table=True):
     __tablename__ = 'Tickets'
 
     id: str = Field(default_factory=lambda: str(uuid6.uuid7()), sa_column=Column(CHAR(36), primary_key=True))
     subject: Optional[str] = Field(default=None, sa_column=Column('subject', String(255)))
     description: Optional[str] = Field(default=None, sa_column=Column('description', Text))
-    status: Optional[str] = Field(default=None, sa_column=Column('status', Enum('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'), server_default=text("'OPEN'")))
-    priority: Optional[str] = Field(default=None, sa_column=Column('priority', Enum('LOW', 'MEDIUM', 'HIGH', 'URGENT'), server_default=text("'MEDIUM'")))
+    status: Optional[TicketsStatus] = Field(default=None, sa_column=Column('status', Enum(TicketsStatus, values_callable=lambda cls: [member.value for member in cls]), server_default=text("'OPEN'")))
+    priority: Optional[TicketsPriority] = Field(default=None, sa_column=Column('priority', Enum(TicketsPriority, values_callable=lambda cls: [member.value for member in cls]), server_default=text("'MEDIUM'")))
     category: Optional[str] = Field(default=None, sa_column=Column('category', String(100)))
     customer_id: Optional[str] = Field(default=None, sa_column=Column('customer_id', CHAR(36)))
     assigned_agent_id: Optional[str] = Field(default=None, sa_column=Column('assigned_agent_id', CHAR(36)))

@@ -8,7 +8,7 @@ import uuid6
 from SharedKernel.base.Logger import get_logger
 from src.Domain.base_entities import Tickets
 from src.Features.TicketAPI.TicketRepository import TicketRepository
-from src.Features.TicketAPI.TicketDTO import TicketCreateDTO, TicketSearchRequest, TicketUpdateDTO
+from src.Features.TicketAPI.TicketDTO import TicketBaseDTO, TicketSearchRequest
 from src.Features.RealTimeAPI.Storage.StorageService import StorageService
 
 logger = get_logger(__name__)
@@ -26,13 +26,13 @@ class TicketService:
     async def search(self, req: TicketSearchRequest):
         return await self.ticket_repo.search_tickets(req)
 
-    async def create_ticket(self, dto: TicketCreateDTO):
+    async def create_ticket(self, dto: TicketBaseDTO):
         model = Tickets()
         ticket = self.ticket_repo.update_model_from_dto(model, dto)
         return await self.ticket_repo.save(ticket)
 
     async def create_ticket_with_attachments(self, 
-        dto: TicketCreateDTO, 
+        dto: TicketBaseDTO, 
         files: List[UploadFile]
     ):
         model = Tickets()
@@ -91,7 +91,7 @@ class TicketService:
 
     #     return await self.ticket_repo.execute_raw(query)
 
-    async def update_ticket(self, ticket_id: str, dto: TicketUpdateDTO) -> Tickets:
+    async def update_ticket(self, ticket_id: str, dto: TicketBaseDTO) -> Tickets:
         ticket = await self.ticket_repo.find_by_id(ticket_id)
         
         for field, value in dto.model_dump(exclude_unset=True).items():

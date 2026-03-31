@@ -77,7 +77,10 @@ dmypy.json
 # =========================
 # Others
 # =========================
-specs/
+.github/
+.windsurf/
+.vscode/
+specs
 static/
 packages.sh
 config.yaml

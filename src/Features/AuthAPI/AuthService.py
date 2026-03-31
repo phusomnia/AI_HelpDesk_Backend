@@ -1,7 +1,7 @@
 from fastapi import Depends
 from starlette import status
 from src.Domain.base_entities import Accounts
-from src.Features.AuthAPI.AccountDTO import AccountCreateDTO, AccountLoginDTO, AccountSearchRequest, AccountUpdateDTO
+from src.Features.AuthAPI.AccountDTO import CreateAccountRequest, LoginAccountRequest, SearchAccountRequest, UpdateAccountRequest
 from src.Features.AuthAPI.AccountRepository import UserRepository
 import bcrypt
 from src.Features.AuthAPI.JWTProvider import JWTProvider
@@ -16,10 +16,10 @@ class AuthService:
         self.repo = repo
         self.jwt_provider = jwt_provider
         
-    async def search_accounts(self, req: AccountSearchRequest):
+    async def search_accounts(self, req: SearchAccountRequest):
         return await self.repo.search_accounts(req)
 
-    async def register_account(self, dto: AccountCreateDTO):
+    async def register_account(self, dto: CreateAccountRequest):
         existed_account = await self.repo.find_by_username(dto.username)
         if existed_account:
             raise APIException(
@@ -27,28 +27,24 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
-        hashed_password = bcrypt.hashpw(dto.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        account = Accounts(
-            username=dto.username,
-            password=hashed_password
-        )
+        account = dto.to_entity()
         
         return await self.repo.save(account)
     
     # 
-    async def login_account(self, dto: AccountLoginDTO):
+    async def login_account(self, dto: LoginAccountRequest):
         account = await self.repo.find_by_username(dto.username)
         if not account:
             raise APIException(
                 "Invalid email or password",
-                status_code=status.HTTP_401_UNAUTHORIZED
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         is_valid = bcrypt.checkpw(dto.password.encode('utf-8'), account['password'].encode('utf-8'))
         if not is_valid:
             raise APIException(
                 "Invalid email or password",
-                status_code=status.HTTP_401_UNAUTHORIZED
+                status_code=status.HTTP_400_BAD_REQUEST
             )
 
         user_data = {
@@ -62,20 +58,17 @@ class AuthService:
         return access_token
 
     # 
-    async def edit_account(self, id: str, dto: AccountUpdateDTO):
-        user = await self.repo.find_by_id(id)
-        if not user:
+    async def edit_account(self, id: str, dto: UpdateAccountRequest):
+        selected_account = await self.repo.find_by_id(id)
+        if not selected_account:
             raise APIException(
                 "User not found",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
         
-        if dto.email is not None:
-            user.email = dto.email
-        if dto.password is not None:
-            user.password = dto.password
+        account = dto.to_entity(selected_account)
         
-        return await self.repo.update(user)
+        return await self.repo.update(account)\
 
     async def delete_account(self, id: str):
         user = await self.repo.find_by_id(id)

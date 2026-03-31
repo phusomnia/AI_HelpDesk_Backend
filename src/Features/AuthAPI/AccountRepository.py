@@ -3,7 +3,7 @@ import uuid
 from fastapi import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.Domain.base_entities import Accounts
-from src.Features.AuthAPI.AccountDTO import AccountSearchRequest
+from src.Features.AuthAPI.AccountDTO import SearchAccountRequest, SearchAccountRequest
 from src.SharedKernel.base.Page import Page
 from src.SharedKernel.persistence.CrudRepository import CrudRepository
 from src.SharedKernel.persistence.PersistenceManager import get_db_session
@@ -13,9 +13,10 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
     def __init__(self, session: AsyncSession = Depends(get_db_session)):
         super().__init__(Accounts, session)
 
-    async def search_accounts(self, req: AccountSearchRequest):
+    async def search_accounts(self, req: SearchAccountRequest):
         base_query = """
         FROM Accounts a
+        LEFT JOIN Departments d ON a.department_id = d.id
         WHERE 1=1
         """
 
@@ -24,7 +25,7 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
             .paginate(req.page, req.page_size)
         )
 
-        exec_query, params = query.build_select("*")
+        exec_query, params = query.build_select("a.*, d.name as department_name")
         count_query, count_params = query.build_count()
 
         exec_result = await self.fetch_all(exec_query, params)

@@ -6,8 +6,8 @@ import json
 import os
 import pkgutil
 import traceback
-from typing import Any, AsyncGenerator, Iterable, List, Optional, Type
-
+from typing import List, Type
+from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import FastAPI
 from sqlmodel import text
@@ -17,6 +17,7 @@ from SharedKernel.socket.SocketManager import SocketManager
 from scalar_fastapi import get_scalar_api_reference
 from SharedKernel.utils.yamlenv import load_env_yaml
 from fastapi.middleware.cors import CORSMiddleware
+from src.SharedKernel.exception.APIException import APIException
 
 config = load_env_yaml()
 print(config.openapi.litestar.url)
@@ -30,9 +31,6 @@ class WebApplication(FastAPI):
         kwargs.setdefault("redoc_url", None)
         super().__init__(**kwargs)
 
-        # self.di_container = Container()
-        # self.di_container[AsyncSession] = lambda: PersistenceManagerFactory.create(config.database.type).get_async_session()
-
         self.app_router()
         self.add_middleware(
             CORSMiddleware,
@@ -41,7 +39,6 @@ class WebApplication(FastAPI):
             allow_methods=["*"],
             allow_headers=["*"]
         )
-    
     def app_router(self):
         @self.get("/hello", tags=["Hello"])
         async def hello():
@@ -62,6 +59,17 @@ class WebApplication(FastAPI):
                 return {"status": "healthy"}
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}
+
+        @self.exception_handler(APIException)
+        async def api_exception_handler(request, exc: APIException):
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "message": exc.message,
+                    "status_code": exc.status_code
+                }
+            )
+    
 
     def scan_controllers(self, base_path: str = "src.Features") -> List[Type]:
         """

@@ -1,7 +1,3 @@
-"""
-RedisVSRepository - Repository layer for Redis Vector Store operations
-Handles all data access operations (CRUD) for vector store
-"""
 from collections import defaultdict
 import json
 import logging
@@ -9,9 +5,8 @@ from typing import Any, Dict, List
 from langchain_community.storage.redis import RedisStore
 from redis import Redis
 from redisvl.index import SearchIndex
-from redisvl.query import FilterQuery, TextQuery, VectorQuery
 from langchain_core.documents import Document
-
+from redisvl.query import FilterQuery
 from SharedKernel.ai.AIConfig import AIConfigFactory
 from SharedKernel.ai.vector_store.VectorStoreConfig import VectoreStoreConfigFactory
 from SharedKernel.utils.yamlenv import load_env_yaml
@@ -20,7 +15,6 @@ from src.Features.LangChainAPI.RAG.Retriever import HybridRetriever
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 config = load_env_yaml()
-
 
 class RedisVSRepository:
     """

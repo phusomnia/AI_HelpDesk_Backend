@@ -2,7 +2,6 @@ import uuid
 from fastapi import APIRouter, FastAPI, status
 from fastapi.params import Depends
 from sqlmodel.ext.asyncio.session import AsyncSession
-from Features.TicketAPI.TicketDTO import TicketCreateDTO, TicketSearchRequest, TicketUpdateDTO
 from SharedKernel.base.APIResponse import APIResponse
 from SharedKernel.persistence.Decorators import Controller
 from SharedKernel.persistence.PersistenceManager import PersistenceManagerFactory
@@ -21,16 +20,20 @@ class DepartmentRepository(CrudRepository[Departments, uuid.UUID]):
     def __init__(self, session: AsyncSession = Depends(get_db_session)):
         super().__init__(Departments, session)
 
-    async def search_department(self, req: DepartmentSearchRequest):
+    async def search_departments(self, req: DepartmentSearchRequest):
         base_query = """
         FROM Departments d
-        JOIN Accounts a ON d.id = a.department_id
         WHERE 1=1
-        AND d.name != 'Chăm sóc khách hàng'
+        AND d.delete_at IS NULL
         """
 
         query = (
             QueryExtension(base_query)
+            .filter(
+                req.q, 
+                "d.name LIKE :q", 
+                q=f"%{req.q}%"
+            )
             .paginate(req.page, req.page_size)
         )
 
@@ -46,3 +49,7 @@ class DepartmentRepository(CrudRepository[Departments, uuid.UUID]):
             page_size=req.page_size,
             total_elements=count_result[0]['total']
         )
+
+    async def search_department(self, req: DepartmentSearchRequest):
+        # Legacy method - delegate to search_departments
+        return await self.search_departments(req)

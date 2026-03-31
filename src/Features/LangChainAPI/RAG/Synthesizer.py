@@ -6,11 +6,10 @@ from SharedKernel.ai.AIConfig import AIConfigFactory
 from SharedKernel.utils.yamlenv import load_env_yaml
 from fastapi import UploadFile
 from src.Features.LangChainAPI.LangChainDTO import RagRequest
-from src.Features.LangChainAPI.LangTools import check_relevance, rewrite_query
 from src.Features.LangChainAPI.RAG.Loader import Loader
 from src.Features.LangChainAPI.RAG.Process import Process
 from src.Features.LangChainAPI.persistence.MemoryRepository import MemoryRepository
-from src.Features.LangChainAPI.repo.RedisVSRepository import HybridRetriever, RedisVSRepository
+from src.Features.LangChainAPI.persistence.RedisVSRepository import RedisVSRepository
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -23,7 +22,7 @@ class Synthesizer:
         self.loader = Loader()
         self.process = Process()
         self.redis_vs_repo = RedisVSRepository(self.ai_factory)
-        self.memory_repo = MemoryRepository(".data/chat_history.db")
+        self.memory_repo = MemoryRepository()
     ...
     async def ingest_pdf_PaC(self, file: UploadFile):
         await self.redis_vs_repo.delete_documents_by_metadata(
@@ -85,6 +84,7 @@ class Synthesizer:
         - Nguồn: example.pdf
         - Trang: không xác định
         """
+        
         template = f"""{system_prompt}
 
         Ngữ cảnh: {context}

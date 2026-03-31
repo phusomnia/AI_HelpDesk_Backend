@@ -171,12 +171,14 @@ class ChatService:
 
         return await self.repo.fetch_all(
             """
-            SELECT DISTINCT conversation_key
-            FROM Messages
-            WHERE conversation_key LIKE :agent_id
-            ORDER BY conversation_key;
+            SELECT DISTINCT m.conversation_key, c.username
+            FROM Messages m
+            JOIN Accounts c ON c.id = m.sender_id
+            WHERE m.conversation_key LIKE :agent_id_wildcard
+            AND m.sender_id <> :agent_id
+            ORDER BY m.conversation_key;
             """,
-            {"agent_id": f"%{agent_id}%"}
+            {"agent_id_wildcard": f"%{agent_id}%", "agent_id": f"{agent_id}"}
         )
 
         

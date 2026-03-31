@@ -22,7 +22,7 @@ class MemoryRepository:
     Handles all database operations for chat memory.
     """
 
-    def __init__(self, db_path: str = ".data/chat_history.db"):
+    def __init__(self, db_path: str = "specs/data/chat_history.db"):
         self.db_path = Path(db_path).resolve()
         self._ensure_dir()
         self._sqlite_engine: AsyncEngine = None

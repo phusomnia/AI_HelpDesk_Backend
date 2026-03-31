@@ -70,7 +70,7 @@ class SocketController:
             user_id: str,
             service: ChatService = Depends()
         ):
-            result = await service.get_conversation_key_by_user_id(user_id) 
+            result = await service.get_conversation_key_by_agent(user_id) 
             return APIResponse(
                 message="Conversation retrieved successfully",
                 status_code=status.HTTP_200_OK,

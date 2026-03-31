@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
-import os
+from typing import Dict, Any
 import jwt
 from src.SharedKernel.utils.yamlenv import load_env_yaml
 
