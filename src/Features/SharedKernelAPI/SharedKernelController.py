@@ -102,8 +102,8 @@ class SharedKernelController:
                     data={
                         "status": "healthy",
                         "provider": provider_name,
-                        "model": config.llm.ollama.embed
-                        if hasattr(config.llm, "ollama")
+                        "model": getattr(getattr(config.llm, provider_name, None), 'embed', 'unknown')
+                        if hasattr(config.llm, provider_name)
                         else "unknown",
                         "dimension": len(vector),
                     },

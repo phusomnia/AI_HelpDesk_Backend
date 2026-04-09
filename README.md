@@ -6,6 +6,7 @@ Hệ thống hỗ trợ khách hàng thông minh sử dụng AI, được xây d
 
 Cấu trúc thư mục của dự án AI HelpDesk Backend:
 
+```
 AI_HelpDesk_Backend/
 ├── src/                          # Thư mục nguồn chính
 │   ├── Domain/                   # Domain layer - Chứa các entity cốt lõi
@@ -42,6 +43,7 @@ AI_HelpDesk_Backend/
 ├── script.sh                    # Main setup script
 ├── pyrightconfig.json           # Python type checking config
 └── test_main.http               # HTTP testing file
+```
 
 ## ⚙️ Configuration
 
