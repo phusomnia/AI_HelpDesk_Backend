@@ -7,13 +7,13 @@ from sqlmodel import text
 from SharedKernel.persistence.PersistenceManager import get_db_session
 from SharedKernel.persistence.Neo4jManager import get_neo4j_manager, Neo4jManager
 from SharedKernel.config.LLMConfig import LLMFactory, EmbeddingFactory
+config = load_env_yaml()
 
 @Controller
 class SharedKernelController:
     def __init__(self, app: FastAPI) -> None:
         self.app = app
         self.router = APIRouter(prefix="/shared_kernel", tags=["Shared Kernel"])
-        self.config = load_env_yaml()
         self.register_route()
         self.app.include_router(self.router)
 
@@ -56,35 +56,61 @@ class SharedKernelController:
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     data={"status": "unhealthy", "error": str(e)},
                 )
-        
-        @self.router.get("/test_llm")
-        def test():
-            config = load_env_yaml()
-            provider_name = config.llm.provider
-            llm = LLMFactory.create(provider_name)
-            embed = EmbeddingFactory.create(provider_name)
 
-            query = "What is LangChain?"
-            query_vec = embed.embed_query(query)
-            print(query_vec)
+        @self.router.get("/llm")
+        async def check_llm_health():
+            try:
+                provider_name = config.llm.provider
+                llm = LLMFactory.create(provider_name)
 
-            response = llm.invoke("Explain RAG in simple terms")
-            print(response)
+                response = llm.invoke("hello")
 
-        @self.router.get("/test")
-        def test():
-            from langchain_community.graphs import Neo4jGraph
-            from langchain_ollama import ChatOllama
+                return APIResponse(
+                    message="LLM is healthy",
+                    status_code=status.HTTP_200_OK,
+                    data={
+                        "status": "healthy",
+                        "provider": provider_name,
+                        "model": config.llm.get(provider_name, {}).get("model")
+                        if isinstance(config.llm, dict)
+                        else getattr(config.llm, provider_name, {}).model
+                        if hasattr(config.llm, provider_name)
+                        else config.llm.ollama.model,
+                        "response": response.content[:100]
+                        if hasattr(response, "content")
+                        else str(response)[:100],
+                    },
+                )
+            except Exception as e:
+                return APIResponse(
+                    message="LLM is unhealthy",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    data={"status": "unhealthy", "error": str(e)},
+                )
 
-            graph = Neo4jGraph(
-                url="bolt://localhost:7857",
-                username="neo4j",
-                password="password"
-            )
+        @self.router.get("/embedding")
+        async def check_embedding_health():
+            try:
+                provider_name = config.llm.provider
+                embedding = EmbeddingFactory.create(provider_name)
 
-            graph.refresh_schema()
+                vector = embedding.embed_query("test")
 
-            llm = ChatOllama(
-                model=""
-            )
-        
+                return APIResponse(
+                    message="Embedding is healthy",
+                    status_code=status.HTTP_200_OK,
+                    data={
+                        "status": "healthy",
+                        "provider": provider_name,
+                        "model": config.llm.ollama.embed
+                        if hasattr(config.llm, "ollama")
+                        else "unknown",
+                        "dimension": len(vector),
+                    },
+                )
+            except Exception as e:
+                return APIResponse(
+                    message="Embedding is unhealthy",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    data={"status": "unhealthy", "error": str(e)},
+                )

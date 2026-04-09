@@ -41,9 +41,9 @@ class MistralProvider(BaseLLMProvider, BaseEmbeddingProvider):
 
 class OllamaProvider(BaseLLMProvider, BaseEmbeddingProvider):
     def __init__(self):
-        self.model = self.config.llm.ollama.model
-        self.host = self.config.llm.ollama.host
-        self.embedding_model = self.config.llm.ollama.embed
+        self.model = config.llm.ollama.model
+        self.host = config.llm.ollama.host
+        self.embedding_model = config.llm.ollama.embed
 
     def get_llm(self):
         return ChatOllama(
