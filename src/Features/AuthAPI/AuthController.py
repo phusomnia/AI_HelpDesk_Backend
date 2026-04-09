@@ -55,7 +55,19 @@ class AuthController:
                 }
             )
 
-        @self.router.put("/{id}", description="Update account")
+        @self.router.get("/account/{id}", description="Get user by ID")
+        async def get_user_by_id(
+            id: str,
+            service: AuthService = Depends()
+        ):
+            result = await service.get_user_by_id(id)
+            return APIResponse(
+                message="User retrieved successfully",
+                status_code=status.HTTP_200_OK,
+                data=result
+            )
+
+        @self.router.put("/account/{id}", description="Update account")
         async def edit_account(
             id: str,
             dto: UpdateAccountRequest,

@@ -1,4 +1,6 @@
-from SharedKernel.base.Logger import logger
+from SharedKernel.base.Logger import get_logger
+
+logger = get_logger(__name__)
 
 class Utils:
     @staticmethod

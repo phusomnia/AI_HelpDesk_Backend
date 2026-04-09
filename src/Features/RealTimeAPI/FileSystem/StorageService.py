@@ -15,14 +15,13 @@ from src.Features.RealTimeAPI.FileSystem.StorageRepository import FileRepository
 from src.Features.RealTimeAPI.FileSystem.FileDTO import FileSearchRequest
 from src.SharedKernel.utils.yamlenv import load_env_yaml
 
-logger = get_logger(__name__)
-config = load_env_yaml()
-
 class StorageService:
     def __init__(self, 
         repo: FileRepository = Depends(),
         langfacade: LangChainFacade = Depends()
     ):
+        self.log = get_logger(__name__)
+        self.config = load_env_yaml()
         self.STORAGE_PREFIX  = "api/v1/storage/files" 
         self.repo = repo
         self.langfacade = langfacade
@@ -41,13 +40,13 @@ class StorageService:
             print(existing_file)
 
             if existing_file:
-                logger.info(f"Found existing file: {file.filename}, deleting...")
+                self.log.info(f"Found existing file: {file.filename}, deleting...")
                 
                 # Delete from filesystem
                 old_file_path = self._get_file_path(str(existing_file['id']), existing_file['file_name'])
                 if os.path.exists(old_file_path):
                     os.remove(old_file_path)
-                    logger.info(f"Deleted file from disk: {old_file_path}")
+                    self.log.info(f"Deleted file from disk: {old_file_path}")
                 
                 # Soft delete from database
                 existing_file['delete_at'] = datetime.datetime.now()
@@ -70,13 +69,13 @@ class StorageService:
             if file_ext.lower() == ".pdf":
                 # Reset con trỏ file về đầu để ingest
                 await file.seek(0)
-                await self.langfacade.synthesizer.ingest_pdf_PaC(file)
+                await self.langfacade.synthesizer.ingest_file_PaC(file)
 
             attachment.id = new_id
             attachment.file_name = filename
             attachment.url = "http://{}:{}/{}/{}/{}".format(
-                config.app.host, 
-                config.app.port,
+                self.config.app.host, 
+                self.config.app.port,
                 f"{self.STORAGE_PREFIX}",
                 new_id,
                 filename,

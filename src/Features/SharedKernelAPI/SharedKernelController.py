@@ -6,14 +6,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import text
 from SharedKernel.persistence.PersistenceManager import get_db_session
 from SharedKernel.persistence.Neo4jManager import get_neo4j_manager, Neo4jManager
-
+from SharedKernel.config.LLMConfig import LLMFactory, EmbeddingFactory
+config = load_env_yaml()
 
 @Controller
 class SharedKernelController:
     def __init__(self, app: FastAPI) -> None:
         self.app = app
         self.router = APIRouter(prefix="/shared_kernel", tags=["Shared Kernel"])
-        self.config = load_env_yaml()
         self.register_route()
         self.app.include_router(self.router)
 
@@ -53,6 +53,64 @@ class SharedKernelController:
             except Exception as e:
                 return APIResponse(
                     message="Neo4j is unhealthy",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    data={"status": "unhealthy", "error": str(e)},
+                )
+
+        @self.router.get("/llm")
+        async def check_llm_health():
+            try:
+                provider_name = config.llm.provider
+                llm = LLMFactory.create(provider_name)
+
+                response = llm.invoke("hello")
+
+                return APIResponse(
+                    message="LLM is healthy",
+                    status_code=status.HTTP_200_OK,
+                    data={
+                        "status": "healthy",
+                        "provider": provider_name,
+                        "model": config.llm.get(provider_name, {}).get("model")
+                        if isinstance(config.llm, dict)
+                        else getattr(config.llm, provider_name, {}).model
+                        if hasattr(config.llm, provider_name)
+                        else config.llm.ollama.model,
+                        "response": response.content[:100]
+                        if hasattr(response, "content")
+                        else str(response)[:100],
+                    },
+                )
+            except Exception as e:
+                return APIResponse(
+                    message="LLM is unhealthy",
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    data={"status": "unhealthy", "error": str(e)},
+                )
+
+        @self.router.get("/embedding")
+        async def check_embedding_health():
+            try:
+                provider_name = config.llm.provider
+                embedding = EmbeddingFactory.create(provider_name)
+
+                vector = embedding.embed_query("test")
+
+                return APIResponse(
+                    message="Embedding is healthy",
+                    status_code=status.HTTP_200_OK,
+                    data={
+                        "status": "healthy",
+                        "provider": provider_name,
+                        "model": config.llm.ollama.embed
+                        if hasattr(config.llm, "ollama")
+                        else "unknown",
+                        "dimension": len(vector),
+                    },
+                )
+            except Exception as e:
+                return APIResponse(
+                    message="Embedding is unhealthy",
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     data={"status": "unhealthy", "error": str(e)},
                 )

@@ -10,7 +10,9 @@ from langchain_core.documents import Document
 from src.SharedKernel.exception.APIException import APIException
 from src.SharedKernel.base.Metrics import Metrics
 from langchain_community.document_loaders import BSHTMLLoader
+from SharedKernel.base.Logger import get_logger
 
+logger = get_logger(__name__)
 
 class Loader:
     def __init__(self) -> None:
@@ -55,10 +57,10 @@ class Loader:
         suffix = os.path.splitext(file.filename)[1].upper() if file.filename else ".PDF"
         path = os.path.basename(temp_path)
 
-        print(f"DOCUMENT LOADER")
-        print(f"  File     : {path}")
-        print(f"  Type     : {suffix}")
-        print(f"  Size     : {file_size_kb:.1f} KB")
+        logger.info(f"DOCUMENT LOADER")
+        logger.info(f"  File     : {path}")
+        logger.info(f"  Type     : {suffix}")
+        logger.info(f"  Size     : {file_size_kb:.1f} KB")
 
         loader = UnstructuredPDFLoader(temp_path, mode="paged", strategy="fast")
         documents = loader.load()

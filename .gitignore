@@ -83,4 +83,4 @@ dmypy.json
 specs/
 static/
 packages.sh
-config/
+config_env/

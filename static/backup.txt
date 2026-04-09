@@ -1,0 +1,607 @@
+async def search(self, 
+    query: str = "What is LangGraph?", 
+    k: int = 10, 
+    score_threshold: float = 0.7,
+    metadata_filter = None
+):
+    if not query:
+        return []
+
+    try:
+        if metadata_filter:
+            results = await self.redis_vs.asimilarity_search_with_score(
+                query, 
+                k=k, 
+                filter=metadata_filter
+            )
+        else:
+            results = await self.redis_vs.asimilarity_search_with_score(
+                query, 
+                k=k
+            )
+        
+        formatted_results = []
+        for doc, score in results:
+            print(f"score thres: {score_threshold}, score: {score}")
+            if score < score_threshold:
+                log.info("Check score\n")
+                if doc.metadata is None:
+                    doc.metadata = {}
+                
+                doc.metadata['vector_distance'] = float(score)
+                
+                doc_id = doc.metadata.get('id', None)
+                
+                formatted_result = {
+                    "id": doc_id,
+                    "metadata": doc.metadata,
+                    "page_content": doc.page_content,
+                    "score": float(score)
+                    # "type": "Document"
+                }
+                
+                formatted_results.append(formatted_result)
+            
+            log.info(f"Found {len(formatted_results)} results for query: '{query[:50]}...'\n")
+        return formatted_results
+        
+    except Exception as e:
+        print(f"Search error: {e}")
+        return []
+    ...
+
+async def manual_rag(
+    self, 
+    query: str,
+    provider, 
+    k: int = 3,
+    score_threshold: float = 0.7,
+    metadata_filter: Optional[Dict[str, Any]] = None,
+    system_prompt: Optional[str] = None,
+    include_metadata: bool = True
+):
+    system_prompt = """
+    Bạn là trợ lý AI chuyên nghiệp.
+
+    Hãy trả lời câu hỏi của người dùng dựa trên context
+    """
+
+    more = """
+    YÊU CẦU BẮT BUỘC:
+    1. Trả lời câu hỏi dựa trên ngữ cảnh
+    2. KẾT THÚC câu trả lời với 3 dòng thông tin nguồn:
+
+    Trong ngữ cảnh có metadata ở cuối mỗi tài liệu với định dạng:
+    (Source: <tên file>, Chunk: <chunk id>, Type: <loại file>, Relevance Score: <điểm liên quan>)
+
+    Hãy trích xuất thông tin từ metadata này và trình bày lại theo định dạng sau:
+
+    - Nguồn: <tên file>
+    - Trang: <không xác định nếu không có thông tin>
+
+    QUAN TRỌNG:
+    - Chỉ sử dụng thông tin từ metadata.
+    - Nếu không có thông tin trang thì ghi: "không xác định".
+    - Không sử dụng định dạng khác.
+
+    Ví dụ output:
+
+    - Nguồn: example.pdf
+    - Trang: không xác định
+    """
+    system_prompt += more
+
+    search_results = await self.search(
+        query=query,
+        k=k,
+        score_threshold=score_threshold,
+        metadata_filter=metadata_filter
+    )
+
+    context = self._format_context(
+        search_results=search_results,
+        include_metadata=include_metadata
+    )
+    log.info(f"Context: {context}")
+    
+    template = f"""{system_prompt}
+
+    context: {context}
+
+    câu hỏi: {query}
+
+    hãy trả lời câu hỏi dựa trên context và metadata
+    """
+    log.info(f"Template: {template}")
+
+    if search_results is None:
+        return ""
+
+    prompt = ChatPromptTemplate.from_template(template)
+    chain = prompt | provider 
+    answer = await chain.ainvoke({"query": query})
+
+    sources = []
+    for result in search_results:
+        metadata = result["metadata"]
+        sources.append({
+            "source": metadata.get('source', 'unknown'),
+            "chunk_index": metadata.get('source', 'unknown'),
+            "page_number": metadata.get('page_number', 'unknown'),
+            "type": metadata.get('type', 'unknown'),
+            "relevance": result["score"]
+        })
+    
+    return {
+        "answer": answer.content,
+        "query": query,
+        "context": context,
+        "sources": sources,
+        "document_count": len(search_results),
+        "score_threshold": score_threshold,
+        "filter_applied": metadata_filter
+    }
+    ...
+
+########################################################################################################
+def get_all_docs(self):        
+    from redis.client import Redis as RedisClient
+    cursor = 0
+    docs = []
+    
+    r = RedisClient.from_url(self.redis_url)
+
+    while True:
+        cursor, keys = r.scan(cursor, match=f"{self.vs_config.index_name}:*", count=100)
+        
+        for k in keys:
+            doc_data = r.hgetall(k)
+            if doc_data:
+                content = doc_data.get(b'text', b'').decode('utf-8')
+                
+                metadata = {}
+                for key, value in doc_data.items():
+                    if key == b'text':
+                        continue
+                    try:
+                        key_str = key.decode('utf-8')
+                        value_str = value.decode('utf-8')
+                        metadata[key_str] = value_str
+                    except UnicodeDecodeError:
+                        continue
+
+                if '_metadata_json' in metadata:
+                    try:
+                        json_meta = json.loads(metadata['_metadata_json'])
+                        metadata.update(json_meta)
+                        del metadata['_metadata_json']
+                    except json.JSONDecodeError:
+                        pass
+                
+                metadata['id'] = k.decode('utf-8')
+                
+                docs.append(Document(page_content=content, metadata=metadata))
+        if cursor == 0:
+            break
+    
+    r.close()
+    return docs
+    ...
+########################################################################################################
+
+
+########################################################################################################
+async def basic_rag(self, query: str, k: int = 1):
+    vector_retriever = self.redis_vs.as_retriever(search_kwargs={"k": k})
+    result = await vector_retriever.ainvoke(query)
+    print(result)
+...
+########################################################################################################
+
+########################################################################################################
+def _format_context(
+    self,
+    search_results: List[Dict[str, Any]],
+    include_metadata: bool = True,
+    max_context_length: int = 4000
+):
+    if not search_results:
+        return "No relevant documents found."
+
+    context_parts = []
+    current_length = 0
+
+    for i, result in enumerate(search_results):
+        doc_content = result["page_content"]
+        score = result["score"]
+        metadata = result["metadata"]
+        
+        doc_text = f"Document {i+1}:\n{doc_content}"
+        
+        if include_metadata and metadata:
+            metadata_info = []
+            
+            if metadata.get('source'):
+                metadata_info.append(f"Source: {metadata['source']}")
+            if metadata.get('chunk_index') is not None:
+                metadata_info.append(f"Chunk: {metadata['chunk_index']}")
+            if metadata.get('page_number') is not None:
+                metadata_info.append(f"Page: {metadata['page_number']}")
+            if metadata.get('type'):
+                metadata_info.append(f"Type: {metadata['type']}")
+            metadata_info.append(f"Relevance Score: {score:.3f}")
+            
+            if metadata_info:
+                doc_text += f"\n({', '.join(metadata_info)})"
+        
+        if current_length + len(doc_text) > max_context_length:
+            print(f"⚠️ Context truncated at {i} documents")
+            break
+        
+        context_parts.append(doc_text)
+        current_length += len(doc_text)
+    
+    formatted_context = "\n\n".join(context_parts)
+    
+    log.info(f"📝 Formatted context: {len(context_parts)} documents, {len(formatted_context)} chars")
+    
+    return formatted_context
+...
+########################################################################################################
+
+########################################################################################################
+def split_PaC_page(self):
+    # for doc in docs:
+    #     page_chunks = self._split_docs_PaC(full_text, doc.page_content)
+        
+    #     for parent_idx, parent in enumerate(page_chunks["parent"]):
+    #         parent.metadata = parent.metadata or {}
+    #         parent.metadata.update({
+    #             "source": doc.metadata.get("source", ""),
+    #             "language": doc.metadata.get("language", ""),
+    #             "content_type": doc.metadata.get("content_type", ""),
+    #             "page_number": doc.metadata.get("page_number", 0),
+    #             "parent_index": parent_idx,
+    #         })
+    #         parent_chunks.append(parent)
+            
+    #         total_children = len(page_chunks["children"])
+    #         children_per_parent = total_children // len(page_chunks["parent"])
+
+    #         start_idx = parent_idx * children_per_parent
+    #         end_idx = start_idx + children_per_parent if parent_idx < len(page_chunks["parent"]) - 1 else total_children
+            
+    #         for child_idx in range(start_idx, end_idx):
+    #             if child_idx < total_children:
+    #                 child = page_chunks["children"][child_idx]
+    #                 child.metadata = child.metadata or {}
+    #                 parent_id = f"parent_doc:{doc.metadata.get('source', 'unknown')}:page_{doc.metadata.get('page_number', 0)}:{parent_idx}"
+                    
+    #                 child.metadata.update({
+    #                     "parent_id": parent_id,
+    #                     "source": doc.metadata.get("source", ""),
+    #                     "language": doc.metadata.get("language", ""),
+    #                     "content_type": doc.metadata.get("content_type", ""),
+    #                     "page_number": doc.metadata.get("page_number", 0),
+    #                 })
+    #                 child_chunks.append(child)
+
+    # return {
+    #     "parent": parent_chunks,
+    #     "children": child_chunks
+    # }
+    ...
+########################################################################################################
+
+########################################################################################################
+async def ingest_pdf(self, file: UploadFile):
+    docs = self.loader.load_pdf(file)
+    if not docs:
+        print("No documents loaded")
+        return
+    all_chunks = self.process.split_by_page(docs)
+    await self.vs_repo.abatch_add_documents_with_metadata(all_chunks)
+########################################################################################################
+
+
+########################################################################################################
+async def promt_techniques(self, req: ChatTechniqueRequest) -> dict:
+    async def gen(message: str) -> dict:
+        return await self.callbacks.astream(self.provider, message)
+
+    techies_rsg = {
+        TechType.ZERO: gen(ZERO_SHOT_PROMPT),
+        TechType.FEW: gen(FEW_SHOT_PROMPT),
+        TechType.COT: gen(COT_PROMPT),
+        TechType.REACT: gen(REACT_PROMPT)
+    }
+
+    return techies_rsg
+
+ZERO_SHOT_PROMPT = f"""
+  Tóm tắt nội dung sau: 
+
+  Lịch sử manga bắt đầu từ rất sớm. Ở Nhật, người dân đã sớm có hứng thú với một loại nghệ thuật về tranh ảnh (sau này là manga) Manga thời kì này vẫn chỉ đơn giản là những dải truyện tranh ngắn. 
+  Tuy vậy, giá trị giải trí của nó là điều không ai có thể phủ nhận. Không những thế, manga còn giữ một vị trí quan trọng và đầy quan trọng xuyên suốt lịch sử mỹ thuật Nhật Bản. 
+  Manga phát triển từ ukiyo-e theo kiểu vẽ tranh. Nó phát triển nhanh chóng sau thế chiến thứ 2. Manga được hầu hết các hạng người đọc ở Nhật. 
+  Do hầu hết các danh từ trong tiếng Nhật không ở dạng số nhiều nên manga có thể dùng để chỉ nhiều loại truyện tranh, đôi khi trong tiếng Anh cũng được viết là mangas
+"""
+
+FEW_SHOT_PROMPT = f"""
+Tóm tắt nội dung sau: 
+
+Hãy giúp tôi tóm tắt các văn bản dưới đây theo phong cách ngắn gọn, súc tích và giữ lại các thông tin cốt lõi nhất
+Ví dụ 1:
+Văn bản: 'Công nghệ 5G không chỉ mang lại tốc độ internet nhanh hơn gấp nhiều lần so với 4G, mà còn mở ra kỷ nguyên mới cho Internet vạn vật (IoT), xe tự lái và phẫu thuật từ xa nhờ độ trễ cực thấp.'
+Tóm tắt: 5G giúp tăng tốc độ internet và thúc đẩy phát triển IoT, xe tự lái, y tế nhờ ưu điểm độ trễ thấp
+
+Ví dụ 2:
+Văn bản: 'Để bảo vệ sức khỏe tim mạch, các chuyên gia khuyến cáo mỗi người nên tập thể dục ít nhất 30 phút mỗi ngày, duy trì chế độ ăn ít muối và hạn chế các thực phẩm chứa chất béo bão hòa.'
+Tóm tắt: Tập thể dục hằng ngày và ăn uống lành mạnh (ít muối, ít béo) là cách bảo vệ tim mạch hiệu quả
+
+Nhiệm vụ của bạn:
+Văn bản: 
+Lịch sử manga bắt đầu từ rất sớm. Ở Nhật, người dân đã sớm có hứng thú với một loại nghệ thuật về tranh ảnh (sau này là manga) Manga thời kì này vẫn chỉ đơn giản là những dải truyện tranh ngắn. 
+Tuy vậy, giá trị giải trí của nó là điều không ai có thể phủ nhận. Không những thế, manga còn giữ một vị trí quan trọng và đầy quan trọng xuyên suốt lịch sử mỹ thuật Nhật Bản. 
+Manga phát triển từ ukiyo-e theo kiểu vẽ tranh. Nó phát triển nhanh chóng sau thế chiến thứ 2. Manga được hầu hết các hạng người đọc ở Nhật. 
+Do hầu hết các danh từ trong tiếng Nhật không ở dạng số nhiều nên manga có thể dùng để chỉ nhiều loại truyện tranh, đôi khi trong tiếng Anh cũng được viết là mangas
+
+Tóm tắt:
+"""
+
+COT_PROMPT = f"""
+Hãy tóm tắt văn bản theo phương pháp suy luận từng bước. Đầu tiên, hãy xác định các ý chính, sau đó loại bỏ chi tiết phụ và cuối cùng là tổng hợp thành một câu tóm tắt
+
+Ví dụ:
+Văn bản: 'Việc áp dụng làm việc từ xa giúp doanh nghiệp tiết kiệm 30% chi phí vận hành văn phòng, 
+đồng thời giúp nhân viên giảm căng thẳng do không phải di chuyển trong giờ cao điểm, từ đó tăng năng suất lao động lên đáng kể.'
+
+Suy nghĩ:
+Ý chính 1: Doanh nghiệp tiết kiệm 30% chi phí.
+Ý chính 2: Nhân viên giảm căng thẳng và tăng năng suất.
+Mối quan hệ: Làm việc từ xa mang lại lợi ích cho cả doanh nghiệp và nhân viên.
+
+Tóm tắt: Làm việc từ xa giúp tối ưu chi phí cho doanh nghiệp và nâng cao hiệu suất cũng như tinh thần cho nhân viên
+
+Nhiệm vụ của bạn:
+
+Văn bản:             
+Lịch sử manga bắt đầu từ rất sớm. Ở Nhật, người dân đã sớm có hứng thú với một loại nghệ thuật về tranh ảnh (sau này là manga) Manga thời kì này vẫn chỉ đơn giản là những dải truyện tranh ngắn. 
+Tuy vậy, giá trị giải trí của nó là điều không ai có thể phủ nhận. Không những thế, manga còn giữ một vị trí quan trọng và đầy quan trọng xuyên suốt lịch sử mỹ thuật Nhật Bản. 
+Manga phát triển từ ukiyo-e theo kiểu vẽ tranh. Nó phát triển nhanh chóng sau thế chiến thứ 2. Manga được hầu hết các hạng người đọc ở Nhật. 
+Do hầu hết các danh từ trong tiếng Nhật không ở dạng số nhiều nên manga có thể dùng để chỉ nhiều loại truyện tranh, đôi khi trong tiếng Anh cũng được viết là mangas
+
+Suy nghĩ: (Hãy phân tích từng bước tại đây)
+
+Tóm tắt:
+"""
+
+REACT_PROMPT= f"""
+## Role
+Bạn là một tác giả viết lách có nhiều kinh nghiệm viết blog
+
+## Input
+Nhiệm vụ của bạn là viết một blog về "Cảm xúc của tôi về Fate Stay Night" khoảng 300 từ
+
+## Workflow
+Đối với [INPUT] luôn thực hiện theo chu kỳ chặt chẽ:
+Suy nghĩ (thought) -> Hành động (Action) -> Quan sát (Observation)
+Sau chu kì các hành động đó đến bước Tổng kết (Summary), bước này bạn phải thực nhiệm vụ
+
+## 
+"""
+########################################################################################################
+
+########################################################################################################
+    async def prompt_template(self, req: ChatTemplateRequest) -> dict:
+        async def from_template():
+            template = "Viết một blog ngắn nói về {topic}" 
+            _prompt = PromptTemplate.from_template(template)
+            prompt = _prompt.format(topic=req.message)
+
+            return await self.callbacks.astream(self.provider, prompt)
+
+        async def prompt_template():
+            template = "Viết một blog ngắn nói về {topic} khoảng {words}"
+            _prompt = PromptTemplate(
+                # nội dung chính
+                template=template,
+                # biến đầu vào
+                input_variables=['topic'],
+                # định nghĩ kiểu dữ liệu
+                input_types={},
+                # biến cố định
+                partial_variables={'words': '300 từ'}
+            )
+            prompt = _prompt.format(topic=req.message)
+
+            # hoặc
+            # prompt = _prompt.partial(words="300 từ")
+            # prompt = _prompt.format(topic=req.message)
+            # async for chunk in self.provider.astream(prompt):
+            #     yield chunk
+
+            return await self.callbacks.astream(self.provider, prompt)
+
+        async def message_placeholder():
+            template = ChatPromptTemplate.from_template("Viết một blog ngắn nói về {topic} khoảng {words}")
+            chain = template | self.provider 
+            placeholder = {
+                "topic": req.message,
+                "words": "300 từ"
+            }
+
+            return await self.callbacks.astream(chain, placeholder)
+
+        async def chat_template():
+            template = ChatPromptTemplate.from_messages([
+                ("system", "Bạn là trợ lý AI"),
+                MessagesPlaceholder(variable_name="hoi_thoai"),
+                ("human", "Tóm tắt nội dung trong {so_tu} từ"),
+            ])
+
+            chain = template | self.model | StrOutputParser()
+
+            placeholder = {
+                "so_tu": 20,
+                "hoi_thoai": [
+                    ("human", 
+                    """Viết một blog ngắn nói về manga khoảng 200 từ"""
+                    )
+                ],
+            }
+
+            return await self.callbacks.astream(chain, placeholder)
+
+        template_dict = {
+            TemplateType.from_template: from_template(),
+            TemplateType.prompt_template: prompt_template(), 
+            TemplateType.chat_template: chat_template(),
+            TemplateType.message_placeholder: message_placeholder()
+        }
+
+        return template_dict
+########################################################################################################
+
+import json
+from typing import Any
+from Features.LangChainAPI.LangChainDTO import Callback
+from Features.LangChainAPI.LangTools import LangTools, ascrawl_web_tool, crawl_web_tool
+from SharedKernel.base.Logger import logger
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage, ToolMessage
+
+########################################################################################################
+class ToolService:
+    def __init__(self, provider: BaseChatModel, callbacks: Callback):
+        self.provider = provider
+        self.callbacks = callbacks or {}
+
+        self.tool_list = [
+            crawl_web_tool
+        ]
+
+        self.provider_with_tools = self.provider.bind_tools(self.tool_list)
+
+    async def call_search_tools(self):
+        query = "Tìm kiếm tool, để fetch thông tin từ link sau: https://youtube.fandom.com/wiki/BHGaming"
+        return await self.handler_tool_call(self.provider_with_tools, query)
+
+    async def handler_tool_call(self, provider: Any, query: str):
+            response = await provider.ainvoke([HumanMessage(content=query)])
+            
+            if not response.tool_calls:
+                return response.content
+
+            print(f"Tool: {response.tool_calls}")
+
+            messages = [HumanMessage(content=query), response]
+
+            for tool_call in response.tool_calls:
+                tool_name = tool_call["name"]
+                tool_args = tool_call["args"]
+                logger.info(f"Tool name: {tool_name}")
+                logger.info(f"Tool args: {tool_args}")
+
+                for tool in self.tool_list:
+                    if tool.name == tool_name:
+                        tool_output = await tool.ainvoke(tool_args)
+
+                        messages.append(ToolMessage(
+                                content=str(tool_output),
+                                tool_call_id=tool_call["id"]
+                            ))
+                        
+            return await self.callbacks.astream(provider, messages)
+########################################################################################################
+
+        @self.router.get("/technique")
+        async def prompt_technique(
+            tech_type: TechType
+        ):
+            dto = ChatTechniqueRequest(message="", tech=tech_type)
+            handler = await langfacade.prompt.promt_techniques(dto)
+            result = await handler.get(tech_type)
+
+            if result is None:
+                raise ValueError(f"Invalid prompt type: {tech_type}")
+
+            return StreamingResponse(
+                result["content"],
+                media_type="text/event-stream"
+            )
+        ...
+
+        @self.router.post("/template")
+        async def prompt_template(
+            req: ChatRequest,
+            template_type: TemplateType
+        ):
+            dto = ChatTemplateRequest(message=req.message, template=template_type)
+            handler = await langfacade.prompt.prompt_template(dto)
+            result = await handler.get(template_type)
+            
+            if handler is None:
+                raise ValueError(f"Invalid prompt type: {template_type}")   
+
+            return StreamingResponse(
+                result["content"],
+                media_type="text/event-stream"
+            )
+        ...
+
+        @self.router.post("/structed_output")
+        async def structed_output():
+            result = await langfacade.output_parser.structed_output()
+            print(result)
+        ...
+
+        ### Chuong 3.2
+        @self.router.post("/tools")
+        async def tools(
+            req: ChatRequest
+        ):
+            handler = await langfacade.tools.call_search_tools()
+            result = handler.get("content")
+
+            return StreamingResponse(
+                result,
+                media_type="text/event-stream"
+            )
+
+        @self.router.post("/search_oscar_agent")
+        def search_oscar_agent(query: str="Best Actor Oscar 2026"):
+            response = langfacade.agent.search_oscar(query)    
+
+            return StreamingResponse(
+                response,
+                media_type="text/event-stream"
+            )
+
+        @self.router.post("/short_chat")
+        async def short_chat(
+            req: ChatMessageRequest
+        ):
+            return await langfacade.memory.short_chat(req)
+
+        @self.router.post("/long_chat")
+        async def long_chat(
+            req: ChatMessageRequest
+        ):
+            print(req.session_id)
+            return await langfacade.memory.long_chat(req)
+
+        @self.router.post("/document_webpage")
+        def document_webpage(
+            req: ChatRequest
+        ):
+            result = langfacade.SYN.loader.load_webpage(req.message)
+ 
+            return StreamingResponse(
+                result,
+                media_type="text/event-stream"
+            )
+
+
+
+    

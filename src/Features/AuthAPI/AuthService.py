@@ -62,13 +62,29 @@ class AuthService:
         selected_account = await self.repo.find_by_id(id)
         if not selected_account:
             raise APIException(
-                "User not found",
+                "Ko tìm thấy tài khoản",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        existed_account = await self.repo.find_by_username(dto.username, id)
+        if existed_account:
+            raise APIException(
+                "Tài khoản đã tồn tại",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
         account = dto.to_entity(selected_account)
         
-        return await self.repo.update(account)\
+        return await self.repo.update(account)
+
+    async def get_user_by_id(self, id: str):
+        user = await self.repo.find_by_id(id)
+        if not user:
+            raise APIException(
+                "User not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        return user
 
     async def delete_account(self, id: str):
         user = await self.repo.find_by_id(id)

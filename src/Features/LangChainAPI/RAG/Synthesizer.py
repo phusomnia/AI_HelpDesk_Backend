@@ -2,7 +2,7 @@ import logging
 import json
 from typing import Any, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
-from SharedKernel.config.AIConfig import AIConfigFactory
+from SharedKernel.config.LLMConfig import EmbeddingFactory
 from src.SharedKernel.utils.yamlenv import load_env_yaml
 from src.SharedKernel.base.Metrics import Metrics
 from fastapi import UploadFile
@@ -21,11 +21,12 @@ config = load_env_yaml()
 
 class Synthesizer:
     def __init__(
-        self, ai_factory: AIConfigFactory, provider, thread_pool: ThreadPoolManager
+        self, 
+        embedding_factory: type[EmbeddingFactory], 
+        provider
     ) -> None:
         self.provider = provider
-        self.ai_factory = ai_factory
-        self.thread_pool = thread_pool
+        self.embedding_factory = embedding_factory
         self.loader = Loader()
         self.process = Process()
         self._redis_vs_repo = None
@@ -33,13 +34,12 @@ class Synthesizer:
         self._lexical_builder = None
         self.memory_repo = MemoryRepository()
 
-        self.ai_config = ai_factory.create(config.ai.llm_provider)
-        self.embedding_model = self.ai_config.create_embedding()
+        self.embedding_model = self.embedding_factory.create(config.llm.provider)
 
     @property
     def redis_vs_repo(self):
         if self._redis_vs_repo is None:
-            self._redis_vs_repo = RedisVSRepository(self.ai_factory)
+            self._redis_vs_repo = RedisVSRepository(self.embedding_factory)
         return self._redis_vs_repo
 
     @property
@@ -70,24 +70,17 @@ class Synthesizer:
             )
 
         with metrics.stage("load_pdf"):
-            docs = await self.thread_pool.run_in_executor(self.loader.load_pdf, file)
+            docs = await self.loader.load_pdf(file)
 
         if not docs:
             print("No documents loaded")
             return
 
         with metrics.stage("split_pac"):
-            chunks = await self.thread_pool.run_in_executor(
-                self.process.split_PaC, docs
-            )
+            chunks = await self.process.split_PaC(docs)
 
         with metrics.stage("add_documents"):
-            await self.thread_pool.run_in_executor(
-                lambda chunks: asyncio.run(
-                    self.redis_vs_repo.add_PaC_documents(chunks)
-                ),
-                chunks,
-            )
+            await self.redis_vs_repo.add_PaC_documents(chunks)
 
         metrics.log_summary()
 
@@ -305,8 +298,9 @@ class Synthesizer:
             Hãy trả lời câu hỏi của người dùng dựa trên context
 
             YÊU CẦU BẮT BUỘC:
-            1. Trả lời câu hỏi dựa trên ngữ cảnh
-            2. KẾT THÚC câu trả lời với 3 dòng thông tin nguồn:
+            1. Tuân theo quy tắc xử lý
+            2. Trả lời câu hỏi dựa trên ngữ cảnh
+            3. KẾT THÚC câu trả lời với 3 dòng thông tin nguồn:
 
             Trong ngữ cảnh có metadata ở cuối mỗi tài liệu với định dạng:
             Source: <tên file>, Page: <trang>

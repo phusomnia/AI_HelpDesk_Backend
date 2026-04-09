@@ -51,16 +51,20 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
         exec_result = await self.fetch_one(base_query, params)
         return exec_result
 
-    async def find_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+    async def find_by_username(self, username: str, exclude_id: str = None) -> Optional[Dict[str, Any]]:
         base_query = """
         SELECT * 
         FROM Accounts a
-        WHERE a.username = :username
+        WHERE a.username = :username 
         """
         
         params = {
-            "username": username
+            "username": username,
         }
+        
+        if exclude_id:
+            base_query += " AND a.id != :exclude_id"
+            params["exclude_id"] = exclude_id
         
         exec_result = await self.fetch_one(base_query, params)
         return exec_result

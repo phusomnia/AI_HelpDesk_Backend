@@ -1,16 +1,15 @@
 import json
-import logging
 from typing import Any, Dict, List
 from langchain_core.documents import Document
 from redisvl.query import FilterQuery
-from SharedKernel.config.AIConfig import AIConfigFactory
+from SharedKernel.config.LLMConfig import EmbeddingFactory
 from SharedKernel.config.VectorStoreConfig import VectoreStoreConfigFactory
 from SharedKernel.utils.yamlenv import load_env_yaml
 from SharedKernel.persistence.RedisConnectionManager import get_redis_manager
+from SharedKernel.base.Logger import get_logger
 from src.Features.LangChainAPI.RAG.Retriever import HybridRetriever
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 config = load_env_yaml()
 
 class RedisVSRepository:
@@ -19,9 +18,8 @@ class RedisVSRepository:
     Handles CRUD operations for documents in vector store.
     """
 
-    def __init__(self, ai_factory: AIConfigFactory):
-        self.ai_config = ai_factory.create(config.ai.llm_provider)
-        self.embeddings = self.ai_config.create_embedding()
+    def __init__(self, embedding_factory: type[EmbeddingFactory]):
+        self.embeddings = embedding_factory.create(config.llm.provider)
         self.vs_config = VectoreStoreConfigFactory.create(config.vector_store.provider)
         self.redis_vs = self.vs_config.get_vecstore(self.embeddings)
         self.redis_url = self.vs_config.get_url()

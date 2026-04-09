@@ -37,7 +37,7 @@ class RedisConnectionManager:
         pool = self.get_pool(redis_url)
         return Redis(connection_pool=pool)
     
-    def get_search_index(self, redis_url: str, yaml_path: str = "config/redis_index.yaml") -> SearchIndex:
+    def get_search_index(self, redis_url: str, yaml_path: str = "config_env/redis_index.yaml") -> SearchIndex:
         """Get cached SearchIndex, load YAML once"""
         cache_key = f"{redis_url}:{yaml_path}"
         if cache_key not in self._indexes:

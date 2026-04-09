@@ -7,9 +7,8 @@ log = logging.getLogger(__name__)
 
 class Neo4JStore(Neo4jManager):
     """Store lexical graph vào Neo4j - dùng Neo4jManager singleton"""
-
-    def __new__(cls, embedding_model=None):
-        return super().__new__(cls)
+    # def __new__(cls, embedding_model=None):
+    #     return super().__new__(cls)
 
     def __init__(self, embedding_model=None):
         super().__init__()

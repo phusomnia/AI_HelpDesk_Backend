@@ -21,8 +21,8 @@ class Process:
 
     def _split_docs(self, text: str):
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=config.splitter.chunk_size,
-            chunk_overlap=config.splitter.chunk_overlap,
+            chunk_size=config.llm.splitter.PaC.parent_chunk_size,
+            chunk_overlap=config.llm.splitter.PaC.parent_chunk_overlap,
             separators=law_separators,
             is_separator_regex=True,
             strip_whitespace=True  
@@ -62,15 +62,15 @@ class Process:
             cursor = end + 1
 
         parent_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2048,
-            chunk_overlap=400,
+            chunk_size=config.llm.splitter.PaC.parent_chunk_size,
+            chunk_overlap=config.llm.splitter.PaC.parent_chunk_overlap,
             separators=law_separators,
             add_start_index=True
         )
 
         child_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=512,
-            chunk_overlap=100,
+            chunk_size=config.llm.splitter.PaC.child_chunk_overlap,
+            chunk_overlap=config.llm.splitter.PaC.child_chunk_overlap,
             separators=law_separators,
             add_start_index=True
         )

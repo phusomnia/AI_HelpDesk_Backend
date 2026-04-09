@@ -30,8 +30,10 @@ AI_HelpDesk_Backend/
 │   └── main.py                  # Entry point của ứng dụng
 ├── ui/                          # Frontend/UI components
 │   └── app.py                   # Main UI application
-├── config/                      # Configuration files
-│   └── redis_index.yaml         # Redis configuration
+├── config_env/                  # Configuration files
+│   ├── config.yaml              # Main application config
+│   ├── redis.yaml               # Redis connection settings
+│   └── redis_index.yaml         # Redis vector index schema
 ├── static/                      # Static files (assets, images, etc.)
 ├── .gitignore                   # Git ignore file
 ├── LICENSE                      # License file
@@ -43,7 +45,7 @@ AI_HelpDesk_Backend/
 
 ## ⚙️ Configuration
 
-Hệ thống sử dụng các file cấu hình YAML trong thư mục `config/`:
+Hệ thống sử dụng các file cấu hình YAML trong thư mục `config_env/`:
 
 ### 1. config.yaml
 
@@ -74,25 +76,31 @@ database:
 redis:
   url: redis://localhost:6379
 
-ai:
-  llm_provider: ollama
+llm:
+  provider: ollama
+  
   mistral:
     model: mistral-small-2501
     api_key: <api_key>
     embed: codestral-embed
+  
   ollama:
     host: http://localhost:11434
     model: hf.co/unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_K_M
-    embed: hf.co/Qwen/Qwen3-Embedding-4B-GGUF:Q4_K_M
+    embed: nomic-embed-text:latest
+
+  splitter:
+    fixed:
+      chunk_size: 512
+      chunk_overlap: 50
+    PaC:
+      parent_chunk_size: 2048
+      parent_chunk_overlap: 400
+      child_chunk_size: 512
+      child_chunk_overlap: 100
 
 cloudinary:
   url: cloudinary://<cloudinary_url>
-
-splitter:
-  chunk_size: 1000
-  chunk_overlap: 200
-  separators: 
-    law: ["\nĐiều ", "\n\n", "\n", " "]
 
 jwt:
   secret: <jwt_secret>
@@ -102,9 +110,59 @@ jwt:
 
 vector_store:
   provider: redis
+
+threading:
+  max_workers: 10
+  timeout: 300
+  queue_size: 100
+
+performance:
+  enabled: true
+  sizing_strategy: "auto"
+  metrics_enabled: true
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    recovery_timeout: 60
+
+neo4j:
+  uri: bolt://localhost:7687
+  user: neo4j
+  password: password
+
+lexical_graph:
+  section_size: 10
+  embedding_batch_size: 100
+  separators:
+    law: ["\nĐiều\\s+\\d+", "\n\\d+\\.\\s", "\n[a-z]\\)\\s", "\n\n", "\n"]
+    markdown: ["\n## ", "\n### ", "\n#### ", "\n\n", "\n"]
+    html: ["</h1>", "</h2>", "</h3>", "</p>", "</div>", "\n"]
+    pdf: ["\n\n\n", "\n\n", "\n"]
+    txt: ["\n\n", "\n", ". ", " "]
+    generic: ["\n\n\n", "\n\n", "\n", ". ", " "]
+  entity_types:
+    universal: [PERSON, ORGANIZATION, LOCATION, DATE, NUMBER, CONCEPT, ACTION, DOCUMENT]
+    law: [LAW, ARTICLE, DECREE, CHAPTER]
+    technical: [FUNCTION, VARIABLE, MODULE, API]
+    business: [PRODUCT, SERVICE, CUSTOMER, TRANSACTION]
 ```
 
-### 2. redis_index.yaml
+### 2. redis.yaml
+
+```yaml
+redis:
+  connection_pool:
+    max_connections: 50
+    socket_keepalive: true
+    socket_connect_timeout: 5
+    socket_timeout: 10
+    retry_on_timeout: true
+    health_check_interval: 30
+  cache_index: true
+  lazy_connect: true
+```
+
+### 3. redis_index.yaml
 
 ```yaml
 version: "0.1.0"
@@ -209,6 +267,8 @@ pip install -r packages.sh
 ```bash
 # Sau khi chạy script.sh, menu sẽ hoạt động nếu fzf đã được cài
 bash script.sh
+
+nhớ active rồi mới chạy server
 ```                             
 
 ## 🛠 Tech Stack
