@@ -38,8 +38,9 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
             total_elements=count_result[0]['total']
         )
 
-    async def find_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+    async def find_by_email(self, email: str, exclude_id: str = None) -> Optional[Dict[str, Any]]:
         base_query = """
+        SELECT * 
         FROM Accounts a
         WHERE a.email = :email
         """
@@ -47,7 +48,11 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
         params = {
             "email": email
         }
-        
+
+        if exclude_id:
+            base_query += " AND a.id != :exclude_id"
+            params["exclude_id"] = exclude_id
+
         exec_result = await self.fetch_one(base_query, params)
         return exec_result
 

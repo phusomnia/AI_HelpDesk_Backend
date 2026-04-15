@@ -28,6 +28,7 @@ class HybridRetriever:
 
     async def retriever(self, query: str, k: int = 5):
         query_embed = await self.embeddings.aembed_query(query)
+        print(len(query_embed))
 
         vector_query = VectorQuery(
             vector=query_embed,
