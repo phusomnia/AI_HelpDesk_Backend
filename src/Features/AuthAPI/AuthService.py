@@ -23,7 +23,14 @@ class AuthService:
         existed_account = await self.repo.find_by_username(dto.username)
         if existed_account:
             raise APIException(
-                "Username already exists",
+                "Username đã tồn tại",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        existed_email = await self.repo.find_by_email(dto.email)
+        if existed_email:
+            raise APIException(
+                "Email đã tồn tại",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
@@ -36,14 +43,14 @@ class AuthService:
         account = await self.repo.find_by_username(dto.username)
         if not account:
             raise APIException(
-                "Invalid email or password",
+                "Tài khoản không tồn tại",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
         is_valid = bcrypt.checkpw(dto.password.encode('utf-8'), account['password'].encode('utf-8'))
         if not is_valid:
             raise APIException(
-                "Invalid email or password",
+                "Mật khẩu không hợp lệ",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
@@ -69,7 +76,14 @@ class AuthService:
         existed_account = await self.repo.find_by_username(dto.username, id)
         if existed_account:
             raise APIException(
-                "Tài khoản đã tồn tại",
+                "Username đã tồn tại",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        existed_email = await self.repo.find_by_email(dto.email, id)
+        if existed_email:
+            raise APIException(
+                "Email đã tồn tại",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 

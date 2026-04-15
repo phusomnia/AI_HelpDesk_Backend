@@ -6,10 +6,11 @@ import json
 import os
 import pkgutil
 import traceback
-from typing import List, Type
+from typing import List, Type, Dict, Any, Optional
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from fastapi import FastAPI
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import text
 from SharedKernel.base.Logger import get_logger
 from scalar_fastapi import get_scalar_api_reference
@@ -25,7 +26,14 @@ class WebApplication(FastAPI):
         kwargs.setdefault("docs_url", None)
         kwargs.setdefault("redoc_url", None)
         # kwargs.setdefault("lifespan", lifespan)
+        
+        # Configure OpenAPI security scheme for Bearer token
+        kwargs["openapi_tags"] = kwargs.get("openapi_tags", [])
+        
         super().__init__(**kwargs)
+        
+        # Add Bearer token security scheme to OpenAPI
+        self._setup_bearer_auth()
         
         self.app_router()
         self.add_middleware(
@@ -36,7 +44,35 @@ class WebApplication(FastAPI):
             allow_headers=["*"]
         )
     
-
+    def _setup_bearer_auth(self):
+        """Setup Bearer token authentication in OpenAPI schema"""
+        self.security_schemes = {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    
+    def openapi(self) -> Dict[str, Any]:
+        """Override openapi to inject security schemes"""
+        if self.openapi_schema:
+            return self.openapi_schema
+        
+        openapi_schema = super().openapi()
+        
+        # Add security schemes
+        if "components" not in openapi_schema:
+            openapi_schema["components"] = {}
+        
+        if "securitySchemes" not in openapi_schema["components"]:
+            openapi_schema["components"]["securitySchemes"] = {}
+        
+        openapi_schema["components"]["securitySchemes"].update(self.security_schemes)
+        
+        self.openapi_schema = openapi_schema
+        return self.openapi_schema
+    
     def app_router(self):
         @self.get("/hello", tags=["Hello"])
         async def hello():
@@ -47,6 +83,12 @@ class WebApplication(FastAPI):
             return get_scalar_api_reference(
                 openapi_url=self.openapi_url,
                 title=self.title,
+                authentication={
+                    "preferredSecurityScheme": "bearerAuth",
+                    "apiKey": {
+                        "token": ""
+                    }
+                }
             )
 
         @self.get("/check_db_health")

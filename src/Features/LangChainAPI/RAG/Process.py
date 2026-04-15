@@ -7,42 +7,11 @@ from src.SharedKernel.base.Metrics import Metrics
 
 config = load_env_yaml()
 
-law_separators=[
-    r"\nĐiều\s+\d+",
-    r"\n\d+\.\s",
-    r"\n[a-z]\)\s",
-    "\n\n",
-    "\n"
-]
-
 class Process:
     def __init__(self) -> None:
         ...
 
-    def _split_docs(self, text: str):
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=config.llm.splitter.PaC.parent_chunk_size,
-            chunk_overlap=config.llm.splitter.PaC.parent_chunk_overlap,
-            separators=law_separators,
-            is_separator_regex=True,
-            strip_whitespace=True  
-        )
-
-        docs = text_splitter.create_documents([text])
-
-        chunks = [
-            ChunkResponse(
-                index=i, 
-                content=doc.page_content, 
-                length=len(doc.page_content)
-            )
-            for i, doc in enumerate(docs)
-        ]
-
-        return chunks
-        ...
-
-    def split_PaC(self, docs: List[Document]):
+    async def split_PaC(self, docs: List[Document]):
         full_text = ""
         page_map = []
         cursor = 0
@@ -64,14 +33,14 @@ class Process:
         parent_splitter = RecursiveCharacterTextSplitter(
             chunk_size=config.llm.splitter.PaC.parent_chunk_size,
             chunk_overlap=config.llm.splitter.PaC.parent_chunk_overlap,
-            separators=law_separators,
+            separators=config.llm.splitter.separators.law,
             add_start_index=True
         )
 
         child_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=config.llm.splitter.PaC.child_chunk_overlap,
+            chunk_size=config.llm.splitter.PaC.child_chunk_size,
             chunk_overlap=config.llm.splitter.PaC.child_chunk_overlap,
-            separators=law_separators,
+            separators=config.llm.splitter.separators.law,
             add_start_index=True
         )
 

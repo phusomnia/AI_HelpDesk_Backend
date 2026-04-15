@@ -7,7 +7,7 @@ from SharedKernel.config.VectorStoreConfig import VectoreStoreConfigFactory
 from SharedKernel.utils.yamlenv import load_env_yaml
 from SharedKernel.persistence.RedisConnectionManager import get_redis_manager
 from SharedKernel.base.Logger import get_logger
-from src.Features.LangChainAPI.RAG.Retriever import HybridRetriever
+from Features.LangChainAPI.RAG.Retriever import HybridRetriever
 
 log = get_logger(__name__)
 config = load_env_yaml()

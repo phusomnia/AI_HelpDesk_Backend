@@ -1,6 +1,8 @@
 import os
 import shutil
 import tempfile
+import aiofiles
+import aiofiles.os
 from fastapi import UploadFile
 from langchain_community.document_loaders import (
     PlaywrightURLLoader,
@@ -29,22 +31,22 @@ class Loader:
         loader_func = self.loaders.get(ext, self.load_txt)
         return loader_func(file)
 
-    # def load_webpage(self, target_url: str):
-    #     loader = PlaywrightURLLoader(
-    #         urls=[target_url],
-    #         headless=True
-    #     )
+    def load_webpage(self, target_url: str):
+        loader = PlaywrightURLLoader(
+            urls=[target_url],
+            headless=True
+        )
 
-    #     documents = loader.load()
+        documents = loader.load()
 
-    #     if not documents:
-    #         print(f"Cảnh báo: Không lấy được nội dung tại {target_url}")
-    #         return []
+        if not documents:
+            print(f"Cảnh báo: Không lấy được nội dung tại {target_url}")
+            return []
 
-    #     return documents[0].page_content
-    # ...
+        return documents[0].page_content
+    ...
 
-    def load_pdf(self, file: UploadFile):
+    async def load_pdf(self, file: UploadFile):
         if file.filename and not file.filename.lower().endswith(".pdf"):
             raise APIException(f"File {file.filename} is not a PDF file")
 
@@ -57,10 +59,7 @@ class Loader:
         suffix = os.path.splitext(file.filename)[1].upper() if file.filename else ".PDF"
         path = os.path.basename(temp_path)
 
-        logger.info(f"DOCUMENT LOADER")
-        logger.info(f"  File     : {path}")
-        logger.info(f"  Type     : {suffix}")
-        logger.info(f"  Size     : {file_size_kb:.1f} KB")
+        logger.info(f"DOCUMENT LOADER\nFile:  {file.filename}\nType:  {suffix}\nSize:  {file_size_kb:.1f} KB")
 
         loader = UnstructuredPDFLoader(temp_path, mode="paged", strategy="fast")
         documents = loader.load()
@@ -80,7 +79,7 @@ class Loader:
 
         return formatted_docs
 
-    def load_txt(self, file: UploadFile):
+    async def load_txt(self, file: UploadFile):
         content = file.file.read().decode("utf-8", errors="ignore")
         return [
             Document(
@@ -89,7 +88,7 @@ class Loader:
             )
         ]
 
-    def load_html(self, file: UploadFile):
+    async def load_html(self, file: UploadFile):
         content = file.file.read().decode("utf-8", errors="ignore")
         with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as temp_file:
             temp_file.write(content.encode())

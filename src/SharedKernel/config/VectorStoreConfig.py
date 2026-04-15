@@ -10,8 +10,8 @@ from langchain_redis import RedisVectorStore
 import uuid6
 
 log = get_logger(__name__)
-config: dict[str, Any] = load_env_yaml()
-redis_config: dict[str, Any] = load_redis_index()
+config = load_env_yaml()
+redis_config = load_redis_index()
 
 
 class VectoreStoreConfig(ABC):
@@ -25,10 +25,10 @@ class VectoreStoreConfig(ABC):
 
 
 class VectoreStoreConfigFactory:
-    _registry: Dict[str, Type[VectoreStoreConfig]] = {}
+    _registry: Dict[str, VectoreStoreConfig] = {}
 
     @classmethod
-    def register(cls, type_name: str, ai_class: Type[VectoreStoreConfig]):
+    def register(cls, type_name: str, ai_class: VectoreStoreConfig):
         cls._registry[type_name] = ai_class
 
     @classmethod
@@ -95,7 +95,6 @@ class InMemVSManager(VectoreStoreConfig):
     def create_vector_store(self, embedding: Embeddings) -> VectorStore:
         return InMemoryVectorStore(embedding=embedding)
         ...
-
 
 VectoreStoreConfigFactory.register("in_mem", InMemVSManager)
 VectoreStoreConfigFactory.register("redis", RedisVSManager)

@@ -70,6 +70,8 @@ class TicketController:
             query_dto: TicketSearchRequest = Depends(), 
             ticket_service: TicketService = Depends()
         ):
+            # Set customer_id from path parameter to filter by user
+            query_dto.customer_id = user_id
             result = await ticket_service.search(query_dto)
 
             return APIResponse(
