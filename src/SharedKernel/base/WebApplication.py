@@ -16,7 +16,6 @@ from SharedKernel.base.Logger import get_logger
 from scalar_fastapi import get_scalar_api_reference
 from fastapi.middleware.cors import CORSMiddleware
 from src.SharedKernel.exception.APIException import APIException
-from SharedKernel.base.DIContainer import DIContainer
 
 log = get_logger(__name__)
 

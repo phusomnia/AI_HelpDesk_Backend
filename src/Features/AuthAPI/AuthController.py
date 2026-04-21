@@ -4,6 +4,7 @@ from src.Features.AuthAPI.AccountDTO import CreateAccountRequest, LoginAccountRe
 from src.Features.AuthAPI.AuthService import AuthService
 from src.Features.AuthAPI.RoleBasedAccess import RoleBasedAccess, get_current_user, get_current_role, get_current_user_id
 from src.SharedKernel.base.APIResponse import APIResponse
+from src.SharedKernel.exception.APIException import APIException
 from src.SharedKernel.persistence.Decorators import Controller
 
 @Controller
@@ -95,19 +96,64 @@ class AuthController:
                 data=result
             )
 
-        # Role-based access control demo endpoints
-        @self.router.get("/admin-only", description="Admin only endpoint demo")
-        @self.role_access.require_role(AccountsRole.ADMIN)
-        async def admin_only_endpoint(
+        @self.router.get("/access", description="Get redirect URL based on user role")
+        async def access(
             request: Request
         ):
-            user = get_current_user(request)
-            return APIResponse(
-                message="Welcome Admin!",
-                status_code=status.HTTP_200_OK,
-                data={
-                    "username": user["username"],
-                    "role": user["role"],
-                    "user_id": user["user_id"]
-                }
-            )
+            try:
+                auth_header = request.headers.get("Authorization")
+                if not auth_header or not auth_header.startswith("Bearer "):
+                    raise APIException(
+                        "Missing or invalid Authorization header",
+                        status_code=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                token = auth_header[7:]
+                payload = self.role_access._verify_token(token)
+
+                user_role_str = payload.get("role")
+                if not user_role_str:
+                    raise APIException(
+                        "Role not found in token",
+                        status_code=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                try:
+                    user_role = AccountsRole(user_role_str)
+                except ValueError:
+                    raise APIException(
+                        f"Invalid role in token: {user_role_str}",
+                        status_code=status.HTTP_401_UNAUTHORIZED
+                    )
+
+                # Determine redirect URL based on role
+                if user_role == AccountsRole.CUSTOMER:
+                    redirect_url = "/user_portal"
+                elif user_role in [AccountsRole.AGENT, AccountsRole.ADMIN]:
+                    redirect_url = "/management"
+                else:
+                    raise APIException(
+                        f"Unknown role: {user_role_str}",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+
+                return APIResponse(
+                    message="Access granted",
+                    status_code=status.HTTP_200_OK,
+                    data={
+                        "redirect_url": redirect_url,
+                        "role": user_role.value,
+                        "username": payload.get("username"),
+                        "user_id": payload.get("user_id")
+                    }
+                )
+
+            except APIException as e:
+                raise e
+            except Exception as e:
+                raise APIException(
+                    f"Error processing access request: {str(e)}",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+

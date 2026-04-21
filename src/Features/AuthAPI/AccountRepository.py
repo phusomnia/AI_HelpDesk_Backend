@@ -7,7 +7,7 @@ from src.Features.AuthAPI.AccountDTO import SearchAccountRequest, SearchAccountR
 from src.SharedKernel.base.Page import Page
 from src.SharedKernel.persistence.CrudRepository import CrudRepository
 from src.SharedKernel.persistence.PersistenceManager import get_db_session
-from SharedKernel.persistence.QueryExtension import QueryExtension
+from src.SharedKernel.persistence.QueryExtension import QueryExtension
 
 class UserRepository(CrudRepository[Accounts, uuid.UUID]):
     def __init__(self, session: AsyncSession = Depends(get_db_session)):
@@ -22,6 +22,16 @@ class UserRepository(CrudRepository[Accounts, uuid.UUID]):
 
         query = (
             QueryExtension(base_query)
+            .filter(
+                req.role,
+                "a.role = :role",
+                role=req.role
+            )
+            .filter(
+                req.department_name,
+                "a.department_id = :department_name",
+                department_name=req.department_name
+            )
             .paginate(req.page, req.page_size)
         )
 

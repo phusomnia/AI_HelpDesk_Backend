@@ -33,8 +33,8 @@ class TicketRepository(CrudRepository[Tickets, uuid.UUID]):
             )
             .filter(
                 req.department_name, 
-                "d.name LIKE :department_name", 
-                department_name=f"%{req.department_name}%"
+                "t.dept_id = :department_name", 
+                department_name=req.department_name
             )
             .filter(
                 req.status, 
